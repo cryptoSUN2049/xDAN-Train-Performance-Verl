@@ -227,7 +227,10 @@ cpu = [
 
 [tool.ruff]
 line-length = 120
-exclude = ["scripts/legacy_model_merger.py"]
+# `recipes/design/grader_service` is a vendored snapshot of a service maintained in its own
+# repo, not code maintained here. Reformatting it would turn every re-sync into a merge
+# against a few hundred lint fixes instead of an overwrite. It is linted upstream.
+exclude = ["scripts/legacy_model_merger.py", "recipes/design/grader_service"]
 
 [tool.ruff.lint]
 isort = {known-first-party = ["verl"]}

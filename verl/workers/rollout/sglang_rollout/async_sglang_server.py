@@ -55,6 +55,7 @@ from verl.utils.profiler import (
 from verl.utils.tracking import RLInsightLogger
 from verl.workers.config import HFModelConfig, RolloutConfig
 from verl.workers.rollout.replica import RolloutMode, RolloutReplica, TokenOutput
+from verl.workers.rollout.sglang_rollout.metrics_exporter import start_metrics_server
 from verl.workers.rollout.sglang_rollout.sglang_rollout import _set_envs_and_config
 from verl.workers.rollout.sglang_rollout.utils import (
     SGLANG_LORA_NAME,
@@ -181,6 +182,9 @@ class SGLangHttpServer:
         self.base_gpu_id = base_gpu_id
         # model weights version, set by ServerAdapter when update weights.
         self.global_steps = None
+
+        self._generation_tasks: set[asyncio.Task[Any]] = set()
+        self._generation_accepting = True
 
         # PD peer linkage populated post-launch by SGLangPDReplica.set_pd_peer.
         self._pd_decode_peers: list[ActorHandle] = []
@@ -449,6 +453,14 @@ class SGLangHttpServer:
                 server_args=server_args
             )
 
+        if server_args.enable_metrics and os.environ.get("ENABLE_METRIC", "").lower() in {"1", "true"}:
+            metric_port = int(os.environ.get("METRIC_PORT", "20000"))
+            try:
+                self._metrics_server = start_metrics_server(metric_port)
+                logger.info("Started metrics exporter on port %s", metric_port)
+            except OSError as exc:
+                logger.info("Metrics exporter already exists on port %s: %s", metric_port, exc)
+
         # In multi-node cases, non-zero rank nodes should not launch http server.
         if self.node_rank > 0:
             return
@@ -495,6 +507,8 @@ class SGLangHttpServer:
             obj = ResumeMemoryOccupationReqInput(tags=["kv_cache"])
             await self.tokenizer_manager.resume_memory_occupation(obj, None)
             await self.tokenizer_manager.flush_cache()
+
+        self._generation_accepting = True
 
     @property
     def lora_as_adapter(self) -> bool:
@@ -543,7 +557,25 @@ class SGLangHttpServer:
         await self.tokenizer_manager.resume_memory_occupation(obj, None)
         await self.tokenizer_manager.flush_cache()
 
-    async def generate(
+    async def generate(self, *args, **kwargs) -> TokenOutput:
+        """Track a Ray-level generation task and reject late requests after abort."""
+        if not self._generation_accepting:
+            return TokenOutput(
+                token_ids=[],
+                log_probs=[],
+                stop_reason="aborted",
+                extra_fields={"global_steps": self.global_steps},
+            )
+
+        task = asyncio.current_task()
+        assert task is not None
+        self._generation_tasks.add(task)
+        try:
+            return await self._generate(*args, **kwargs)
+        finally:
+            self._generation_tasks.discard(task)
+
+    async def _generate(
         self,
         prompt_ids: torch.Tensor,
         sampling_params: dict[str, Any],
@@ -561,7 +593,7 @@ class SGLangHttpServer:
         if self._disaggregation_role == "prefill" and self._pd_decode_peers and bootstrap_room is None:
             room = secrets.randbits(63)
             decode_peer = self._pd_decode_peers[secrets.randbelow(len(self._pd_decode_peers))]
-            prefill_coro = self.generate(
+            prefill_coro = self._generate(
                 prompt_ids,
                 dict(sampling_params),
                 f"{request_id}_P",
@@ -728,12 +760,33 @@ class SGLangHttpServer:
     async def abort_all_requests(self):
         if self.node_rank != 0:
             return
+        self._generation_accepting = False
         await self.tokenizer_manager.pause_generation(PauseGenerationReqInput(mode="abort"))
+
+        current = asyncio.current_task()
+        active = [task for task in self._generation_tasks if task is not current]
+        if not active:
+            return
+
+        timeout = float(os.environ.get("VERL_SGLANG_ABORT_DRAIN_TIMEOUT_S", "60"))
+        _, pending = await asyncio.wait(active, timeout=max(timeout, 0.0))
+        if not pending:
+            return
+
+        logger.error(
+            "SGLang abort drain timed out; cancelling %d outer generate task(s) after %.1fs",
+            len(pending),
+            timeout,
+        )
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
 
     async def resume_generation(self):
         if self.node_rank != 0:
             return
         await self.tokenizer_manager.continue_generation(ContinueGenerationReqInput())
+        self._generation_accepting = True
 
     async def start_profile(self, **kwargs):
         if (

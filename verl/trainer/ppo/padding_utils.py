@@ -69,10 +69,22 @@ def build_padding_routed_experts(source_routed_experts: Any, seq_len: int) -> to
     )
 
 
+def get_megatron_sequence_length_multiple(tensor_parallel_size: int, context_parallel_size: int) -> int:
+    """Return the sequence-length alignment required by Megatron preprocessing."""
+    if tensor_parallel_size < 1:
+        raise ValueError(f"tensor_parallel_size must be positive, got {tensor_parallel_size}")
+    if context_parallel_size < 1:
+        raise ValueError(f"context_parallel_size must be positive, got {context_parallel_size}")
+    if context_parallel_size > 1:
+        return tensor_parallel_size * context_parallel_size * 2
+    return tensor_parallel_size
+
+
 def construct_minimal_padding_template(
     source_td: dict,
     source_tag: dict,
     eos_token_id: int,
+    sequence_length_multiple: int = 1,
 ) -> tuple[dict, dict]:
     """Construct a text-only padding template.
 
@@ -80,6 +92,7 @@ def construct_minimal_padding_template(
         source_td: A single sample dict retrieved from TransferQueue.
         source_tag: The corresponding tag dict for that sample.
         eos_token_id: The EOS token id from the tokenizer.
+        sequence_length_multiple: Required alignment for the total sequence length.
 
     Returns:
         A tuple of (template_sample, template_tag) ready for padding.
@@ -136,6 +149,7 @@ def upsample_batch_to_divisible_size(
     batch: KVBatchMeta,
     batch_multiple: int,
     eos_token_id: int,
+    sequence_length_multiple: int = 1,
 ) -> KVBatchMeta:
     """Append synthetic no-op samples so the batch size becomes divisible by *batch_multiple*.
 
@@ -149,6 +163,7 @@ def upsample_batch_to_divisible_size(
         batch: The current KVBatchMeta from TransferQueue.
         batch_multiple: The required divisor (e.g. lcm of dp_size and mini-batch sizes).
         eos_token_id: The EOS token id from the tokenizer.
+        sequence_length_multiple: Required alignment for each synthetic sequence.
 
     Returns:
         The (possibly enlarged) KVBatchMeta.
@@ -191,11 +206,13 @@ def upsample_batch_to_divisible_size(
         tags=pad_tags,
     )
     logger.info(
-        "Upsampled batch from %d to %d with %d synthetic padding samples for required_multiple=%d",
+        "Upsampled batch from %d to %d with %d synthetic padding samples for "
+        "required_multiple=%d, sequence_length_multiple=%d",
         len(batch),
         len(batch) + pad_size,
         pad_size,
         batch_multiple,
+        sequence_length_multiple,
     )
     return KVBatchMeta(
         keys=batch.keys + pad_keys,
