@@ -107,7 +107,6 @@ class SidecarKubernetesEnvironment(KubernetesEnvironment):
         super().__init__(config_class=config_class, **kwargs)
         self._validate_multi_container_config()
 
-
     def _setup_kubernetes_client(self) -> None:
         super()._setup_kubernetes_client()
         self.v1_api = _ContainerRoutingCoreV1Api(self.v1_api)
@@ -188,7 +187,6 @@ class SidecarKubernetesEnvironment(KubernetesEnvironment):
                             f"the link in the task directory before uploading."
                         )
         return resolved
-
 
     def _validate_multi_container_config(self) -> None:
         """Fail at construction rather than 20 minutes later as a pod event."""

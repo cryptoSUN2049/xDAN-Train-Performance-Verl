@@ -146,13 +146,11 @@ class DatasetEnvActor:
             )
         return WebdevToolRegistry.from_config(self.config["agent"]["tools"])
 
-
     def _log(self, msg: str) -> None:
         if self._env_logger is not None:
             self._env_logger.info(msg)
         else:
             logger.warning(msg)
-
 
     def _create(self) -> None:
         """Build the DatasetEnvironment and start the pod. Blocking; raises on failure."""
@@ -216,7 +214,6 @@ class DatasetEnvActor:
             "node_name": getattr(self.dataset_env.env, "node_name", ""),
         }
 
-
     def _execute_tool_sync(self, name: str, params: dict[str, Any]) -> dict[str, Any]:
         """Run one tool, mapping its exceptions onto tagged return values.
 
@@ -261,7 +258,6 @@ class DatasetEnvActor:
         assert self.dataset_env is not None, "execute() before setup()"
         return await asyncio.to_thread(lambda: self.dataset_env.env.execute(command, **kwargs))
 
-
     async def calculate_reward(self, timeout: float | None = None) -> tuple[float, str, dict]:
         """Delegate to the dataset environment's grading. Never raises."""
         if self._infra_error:
@@ -286,7 +282,6 @@ class DatasetEnvActor:
         self._log(f"reward={reward}")
         self._log(f"test_output={test_output}")
         return reward, test_output, extra
-
 
     def get_stats(self) -> dict[str, Any]:
         return {"cleanup_failures": self._cleanup_failures, "infra_error": self._infra_error}

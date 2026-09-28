@@ -167,7 +167,6 @@ class GeneralAgentEnvironment(DatasetEnvironment):
             if p.is_file() and p.suffix == ".py" and not p.name.startswith("_") and p.name != "tools_test.py"
         )
 
-
     MANIFEST_FILE = "manifest.json"
 
     def _resolve_src(self, source: str) -> str:
@@ -336,7 +335,6 @@ class GeneralAgentEnvironment(DatasetEnvironment):
             timeout=30,
         )
 
-
     def _setup_dataset_specific(self) -> None:
         env = self.env
         m = self.manifest
@@ -443,7 +441,6 @@ chown -R {agent_uid}:{agent_uid} {self.WORK_DIR}/workspace 2>/dev/null || true
             f"{self.instance_id}: privilege isolation ready "
             f"(agent uid={agent_uid}, bridge user={bridge_user}, url hidden from agent)"
         )
-
 
     def _capture_model_diff(self) -> tuple[str, str]:
         return "", ""
@@ -664,7 +661,6 @@ chown -R {agent_uid}:{agent_uid} {self.WORK_DIR}/workspace 2>/dev/null || true
                     os.replace(extracted, target)
             except Exception as e:
                 self.logger.warning(f"{self.instance_id}: post-state pull of {name} failed ({e!r})")
-
 
     def _verify_env_prefix(
         self,

@@ -54,7 +54,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 logger = logging.getLogger(__name__)
 
 
-
 VALID_METRICS = ("turns", "input_tokens", "output_tokens")
 VALID_COMBINE = ("max", "mean", "weighted")
 
@@ -119,7 +118,6 @@ class LengthPenaltyConfig(BaseModel):
                 f"strictly less than excess_saturate ({self.excess_saturate})"
             )
         return self
-
 
 
 SEQ_LENGTH_KEYS = (
@@ -204,8 +202,6 @@ def _combine_excess(
     if total_w <= 0.0:
         return 0.0
     return weighted_sum / total_w
-
-
 
 
 def _zero_stats(metrics: Sequence[str]) -> dict[str, float]:
@@ -324,8 +320,6 @@ def compute_group_length_penalty(
         stats["excess_sum"] += combined
 
     return deltas, stats
-
-
 
 
 def finalize_length_penalty_metrics(acc: Mapping[str, float], metrics: Sequence[str]) -> dict[str, float]:
