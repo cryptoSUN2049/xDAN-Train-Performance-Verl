@@ -1,3 +1,17 @@
+# xDAN-Train-Performance-Verl
+
+基于 [XiaomiMiMo/verl](https://github.com/XiaomiMiMo/verl) 的长期 Agentic RL 训练与性能验证项目。保留小米训练代码及 verl 来源，先建立可复现基线，再扩展环境、评测和自改进能力。
+
+- **[专项 HTML 报告](docs/feat-project-bootstrap/index.html)**：MiMo / Ornith 训练路径、数据、成绩、复现教程及长期建设方案。下载后在浏览器打开；支持离线阅读与打印。
+- **[P0 建设计划](docs/feat-project-bootstrap/p0-plan.md)**：数据转换、镜像映射、依赖锁定、环境/奖励验收及短程GRPO。
+- **[上游与资产版本](docs/feat-project-bootstrap/upstream-manifest.json)** · **[初始化设计](docs/feat-project-bootstrap/design.md)** · **[交接入口](tasks/feat-project-bootstrap/handoff.md)**。
+
+当前状态：仓库与研究文档已建立，尚未执行GPU训练；不是已完成全部论文成绩复现的平台。公开9B路线是领域GRPO及独立Code multi-harness实验，包含任务环境，但不等同Harbor主训练pipeline或MiMo Pro完整训练栈。
+
+分支策略：`main` 为 xDAN 集成线；`mimo-oss` 保留上游基线。通用修复尽量上游化；模型、数据、checkpoint、原始轨迹与凭证不提交到Git。保留原始 LICENSE / Notice 与下列上游说明。
+
+---
+
 # XiaomiMiMo/verl
 
 Agentic RL training code for MiMo. The detailed training recipe can be found in Section 7 of our report [MiMo-V2.6: Scaling Reinforcement Learning Towards

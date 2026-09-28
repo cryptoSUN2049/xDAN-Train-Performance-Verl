@@ -1,0 +1,2050 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="description" content="MiMo × verl 与 Ornith-1.5-9B 专项研究：训练路径、数据与奖励、官方成绩、开放边界和 MiMo RL 复现教程。">
+<title>9B Agentic RL 专项方案 · MiMo × verl / Ornith 1.5</title>
+<style>
+:root{--paper:#f5f3ed;--white:#fff;--ink:#172a35;--muted:#53636a;--line:#d6dcd9;--orange:#b74920;--orange-light:#fcf0e8;--teal:#17665e;--teal-light:#eaf4ef;--navy:#102f3b;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;--serif:"Iowan Old Style","Songti SC","Noto Serif CJK SC",serif}
+*{box-sizing:border-box} .step>div,.grid-two>*,.grid-three>*,.chapter-head>div,.hero-panel>div{min-width:0} body{overflow-wrap:anywhere}html{scroll-behavior:smooth;scroll-padding-top:32px}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.8 var(--sans)}a{color:var(--teal);text-underline-offset:4px}button,select{font:inherit}button,a,select,summary{touch-action:manipulation}button{cursor:pointer}button:focus-visible,a:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--orange);outline-offset:4px}.skip{position:fixed;top:-70px;left:16px;z-index:99;background:var(--white);padding:8px 16px}.skip:focus{top:12px}.rail{position:fixed;inset:0 auto 0 0;width:232px;background:var(--navy);color:#eef5f2;padding:32px 24px;display:flex;flex-direction:column;z-index:20}.brand{font-size:13px;letter-spacing:.2em;font-weight:750;display:flex;align-items:center;gap:12px}.brand-mark{width:22px;height:22px;background:#f09460;display:inline-block;clip-path:polygon(0 0,100% 0,100% 55%,55% 100%,0 100%)}.rail-sub{font-size:12px;color:#a8c1c6;margin:12px 0 32px}.rail nav{overflow-y:auto;flex:1}.rail nav a{display:flex;gap:12px;padding:9px 0;color:#c9d8dc;text-decoration:none;font-size:13px;border-bottom:1px solid #284551}.rail nav a span{font:11px/2 var(--mono);color:#8faeb5;min-width:20px}.rail nav a:hover,.rail nav a[aria-current="location"]{color:#fff}.rail nav a[aria-current="location"]{border-bottom-color:#ee9867}.rail-bottom{padding-top:24px;font-size:11px;line-height:1.8;color:#abc3c9}.progress{height:2px;background:#34515c;margin-top:12px}.progress>i{display:block;width:0;height:100%;background:#efa16d}.layout{margin-left:232px}.topbar{padding:20px 48px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:12px;color:var(--muted);letter-spacing:.08em}.actions{display:flex;align-items:center;gap:16px}.print-button{border:1px solid var(--line);padding:7px 14px;background:transparent;color:var(--ink);font-size:12px}.mobile-menu{display:none}.container{max-width:1220px;margin:auto;padding:0 56px}.hero{padding:72px 0 48px}.kicker{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.16em;color:var(--orange);font-weight:750}.kicker:before{content:"";width:32px;height:2px;background:var(--orange)}h1{font-size:clamp(36px,4.1vw,64px);line-height:1.18;letter-spacing:-.035em;margin:24px 0;font-weight:680}h1 em{font-style:normal;color:var(--orange)}.hero-subtitle{max-width:820px;font-size:18px;line-height:1.85;color:var(--muted)}.hero-meta{display:flex;flex-wrap:wrap;gap:8px 24px;border-top:1px solid var(--line);margin-top:32px;padding-top:16px;font-size:12px;color:var(--muted)}.hero-meta strong{color:var(--ink);font-weight:600}.hero-panel{margin-top:36px;background:var(--navy);color:#f5f6f0;padding:32px;display:grid;grid-template-columns:1.1fr 1fr;gap:32px;position:relative;overflow:hidden}.hero-panel p{color:#c3d4d6;font-size:14px;margin:8px 0 0}.hero-panel h2{font-size:24px;line-height:1.5;margin:0;font-weight:550}.hero-panel .small-label{color:#efb28d}.hero-path{border-left:1px solid #45606a;padding-left:32px;display:flex;flex-direction:column;justify-content:center}.hero-path>div{display:flex;gap:12px;align-items:baseline;font-size:13px}.hero-path b{min-width:55px;color:#efb28d;font-family:var(--mono);font-size:11px}.hero-path>div+div{margin-top:12px}.chapter{padding:48px 0;border-top:1px solid var(--line)}.chapter-head{display:grid;grid-template-columns:48px 1fr;gap:20px;margin-bottom:28px}.chapter-no{font:italic 36px/1.3 var(--serif);color:var(--orange);padding-top:8px}.eyebrow,.small-label{font-size:10px;letter-spacing:.15em;font-weight:700;color:var(--muted);margin:0 0 8px}.chapter h2{font-size:30px;line-height:1.35;letter-spacing:-.02em;margin:0 0 12px;font-weight:650}.lead{font-size:16px;color:var(--muted);max-width:900px;margin:0}h3{font-size:20px;line-height:1.5;margin:28px 0 12px}h4{font-size:16px;margin:20px 0 8px}p{margin:12px 0}li{margin:6px 0}ul,ol{padding-left:24px}.grid-two{display:grid;grid-template-columns:1fr 1fr;gap:24px}.grid-three{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.note{border-left:3px solid var(--orange);background:var(--orange-light);padding:16px 20px;font-size:14px;margin:24px 0}.note.teal{border-color:var(--teal);background:var(--teal-light)}.note strong{display:block;margin-bottom:4px}.note p{margin:0}.verdict{border-top:2px solid var(--ink);padding:20px 0}.verdict .label{font-size:11px;color:var(--orange);letter-spacing:.1em;font-weight:700}.verdict h3{margin:12px 0;font-size:20px}.verdict p{font-size:14px;color:var(--muted)}.tag{display:inline-block;font-size:10px;line-height:1.6;padding:3px 8px;border:1px solid var(--line);border-radius:2px;vertical-align:middle;white-space:nowrap}.tag.fact{background:var(--teal-light);color:var(--teal);border-color:#b9d7ca}.tag.report{background:var(--orange-light);color:#963b1d;border-color:#dfbfaa}.tag.open{background:#fff;color:var(--muted)}.cite{font-size:11px;white-space:nowrap;margin-left:6px;text-decoration:none;border-bottom:1px solid #9ab8b1}.evidence{font-size:12px;color:var(--muted);margin-top:12px}.pipeline{display:grid;grid-template-columns:repeat(4,1fr);margin:24px 0;border:1px solid var(--line);background:var(--white)}.pipeline>div{padding:20px;border-right:1px solid var(--line);position:relative}.pipeline>div:last-child{border:0}.pipeline b{display:block;font-size:16px;margin-bottom:8px}.pipeline span{font-size:12px;line-height:1.7;display:block;color:var(--muted)}.pipeline small{color:var(--orange);font:10px var(--mono);display:block;margin-bottom:12px}.pipeline>div:not(:last-child):after{content:"→";position:absolute;right:-11px;top:50%;z-index:1;background:var(--white);color:var(--orange);line-height:20px;width:20px;text-align:center}.lineage{border:1px solid var(--line);padding:24px;background:var(--white)}.lineage h3{margin-top:0}.lineage-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px}.lineage-row strong{padding:8px 12px;background:var(--teal-light);font-size:13px}.lineage-row .arrow{color:var(--orange)}.table-wrap{overflow-x:auto;width:100%;border-top:2px solid var(--ink);margin:20px 0;background:var(--white)}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.7;text-align:left}caption{text-align:left;padding:12px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}th,td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top}thead th{font-size:11px;letter-spacing:.03em;color:var(--muted);background:#edf0eb;white-space:nowrap}tbody th{font-weight:550;min-width:140px}tbody td{font-variant-numeric:tabular-nums}tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}.num{font-family:var(--mono);white-space:nowrap}.positive{color:var(--teal);font-weight:650}.muted{color:var(--muted)}.compact{font-size:13px}.architecture{background:var(--white);border:1px solid var(--line);padding:28px;margin:24px 0}.architecture svg{display:block;width:100%;height:auto}.architecture figcaption{font-size:12px;color:var(--muted);margin-top:16px}.loop-footer{border:1px dashed var(--teal);padding:12px 16px;text-align:center;color:var(--teal);font-size:13px;margin-top:16px}.steps{counter-reset:step;margin:24px 0}.step{display:grid;grid-template-columns:40px 1fr;gap:16px;padding:18px 0;border-top:1px solid var(--line);counter-increment:step}.step:before{content:counter(step,decimal-leading-zero);font:14px var(--mono);color:var(--orange);padding-top:5px}.step h3{margin:0 0 6px;font-size:17px}.step p{margin:0;font-size:14px}.step .detail{margin-top:12px;font-size:13px;color:var(--muted)}.formula{background:var(--navy);color:#f2f6f3;padding:24px 28px;margin:24px 0;font-family:var(--mono);font-size:16px;line-height:2;overflow-x:auto}.formula small{display:block;color:#c0d5d9;font-family:var(--sans);font-size:12px}.domain-switch{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 16px}.domain-switch button{border:1px solid var(--line);background:var(--white);color:var(--ink);padding:8px 16px;font-size:13px}.domain-switch button[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}.domain-panel{background:var(--white);border:1px solid var(--line);padding:24px}.domain-panel h3{margin-top:0}.domain-panel[hidden]{display:none}.domain-panel dl{display:grid;grid-template-columns:110px 1fr;gap:8px 16px;font-size:13px;margin:16px 0}.domain-panel dt{color:var(--muted)}.domain-panel dd{margin:0;overflow-wrap:anywhere}code{font:12px/1.7 var(--mono);background:#e9ece7;padding:2px 4px;overflow-wrap:anywhere}.codebox{position:relative;margin:16px 0}.codebox pre{padding:40px 20px 20px;background:#132e3a;color:#e3eef0;overflow:auto;font:12px/1.85 var(--mono);border-radius:2px;tab-size:2}.codebox code{background:none;padding:0;font:inherit;overflow-wrap:normal}.copy{position:absolute;right:8px;top:8px;padding:3px 10px;background:#284b59;color:#eef5f6;border:1px solid #547581;font-size:10px}.copy-status{min-height:22px;font-size:12px;color:var(--teal)}details{border-top:1px solid var(--line);padding:16px 0}details:last-child{border-bottom:1px solid var(--line)}summary{font-weight:600;cursor:pointer;line-height:1.65}details>div{padding:12px 0 0;font-size:14px}.chartbox{background:var(--white);border:1px solid var(--line);padding:28px;margin:24px 0}.chart-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.chart-top h3{margin:0;font-size:17px}.chart-top label{font-size:12px;color:var(--muted)}select{border:1px solid var(--line);background:var(--white);padding:6px 12px;color:var(--ink);font-size:12px;max-width:100%}.bar-row{display:grid;grid-template-columns:130px 1fr 45px;align-items:center;gap:16px;margin-top:20px;font-size:12px}.bar-track{background:#edf0eb;height:24px}.bar-fill{height:100%;width:0;background:var(--teal);transition:width .3s ease}.bar-row.baseline .bar-fill{background:#8a969d}.bar-row.sft .bar-fill{background:#d08d65}.bar-value{font-family:var(--mono);font-size:15px}.gainline{border-top:1px solid var(--line);margin-top:24px;padding-top:16px;font-size:13px}.number{font:32px/1.3 var(--mono);color:var(--teal);display:block;margin:12px 0}.data-split{display:flex;height:14px;margin:20px 0;overflow:hidden}.data-split i:nth-child(1){background:#235966;width:29.9%}.data-split i:nth-child(2){background:#bd6c42;width:14.2%}.data-split i:nth-child(3){background:#70977e;width:28.5%}.data-split i:nth-child(4){background:#a99b7b;width:27.4%}.checklist{list-style:none;padding:0}.checklist li{border-bottom:1px solid var(--line);padding:12px 0;margin:0;font-size:14px}.checklist label{display:flex;gap:12px;align-items:flex-start}.checklist input{margin-top:6px;accent-color:var(--teal);width:16px;height:16px;flex-shrink:0}.decision{border-top:2px solid var(--ink);padding:24px 0}.decision strong{font-size:19px;display:block;margin-bottom:8px}.decision p{font-size:14px;color:var(--muted)}.source-list{list-style:none;padding:0;counter-reset:sources}.source-list li{counter-increment:sources;padding:14px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:30px 1fr;gap:12px;font-size:13px}.source-list li:before{content:counter(sources,decimal-leading-zero);font:12px var(--mono);color:var(--orange);padding-top:4px}.source-list p{font-size:12px;margin:4px 0;color:var(--muted)}.source-list a{overflow-wrap:anywhere}.endnote{padding:32px 0 48px;border-top:2px solid var(--ink);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:24px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.print-only{display:none}.band{background:var(--navy);color:#fff;padding:28px;margin:24px 0}.band h3{color:#f2b185;margin-top:0}.band p{color:#d3e2e3;font-size:14px}.error{color:#91361c;font-size:12px}.mobile-menu summary{list-style:none}.mobile-menu nav{display:flex;flex-wrap:wrap;gap:8px 16px;padding-top:12px}.mobile-menu nav a{font-size:12px}.stage-label{font:11px var(--mono);color:var(--orange);margin-bottom:8px}
+@media(min-width:1600px){.container{padding:0 72px}.hero{padding-top:88px}}
+@media(max-width:1100px){.rail{width:195px;padding:28px 18px}.layout{margin-left:195px}.container{padding:0 32px}.topbar{padding:16px 32px}.hero-panel{grid-template-columns:1fr}.hero-path{border-left:0;border-top:1px solid #45606a;padding:20px 0 0}.pipeline{grid-template-columns:repeat(2,1fr)}.pipeline>div:nth-child(2){border-right:0}.pipeline>div:nth-child(-n+2){border-bottom:1px solid var(--line)}.pipeline>div:nth-child(2):after{display:none}.grid-three{grid-template-columns:1fr}.verdict h3{margin:8px 0}.verdict p{margin:8px 0}.verdict{padding:16px 0}}
+@media(max-width:760px){.rail{display:none}.layout{margin:0}.container{padding:0 20px}.topbar{padding:12px 20px;font-size:10px;letter-spacing:0}.topbar .edition{display:none}.mobile-menu{display:block;margin:0;padding:12px 20px;border-top:0;background:var(--white)}.hero{padding:40px 0 32px}h1{font-size:clamp(30px,5vw,38px)}.hero-subtitle{font-size:16px}.hero-panel{padding:24px;gap:16px}.hero-panel h2{font-size:21px}.chapter{padding:32px 0}.chapter-head{grid-template-columns:32px 1fr;gap:12px}.chapter-no{font-size:27px}.chapter h2{font-size:25px}.lead{font-size:14px}.grid-two{grid-template-columns:1fr}.pipeline{grid-template-columns:1fr}.pipeline>div{border-right:0;border-bottom:1px solid var(--line)!important}.pipeline>div:last-child{border-bottom:0!important}.pipeline>div:after{display:none}.architecture{padding:12px;margin:20px 0}.architecture svg{min-width:620px}.architecture .diagram-scroll{overflow:auto}.lineage{padding:18px}.table-wrap{font-size:12px}th,td{padding:10px 12px}.bar-row{grid-template-columns:82px 1fr 38px;gap:10px;font-size:11px}.chartbox{padding:18px}.domain-panel{padding:18px}.domain-panel dl{grid-template-columns:1fr;gap:4px}.domain-panel dd{margin-bottom:8px}.formula{padding:18px;font-size:13px}.endnote{flex-direction:column;gap:8px}.codebox pre{font-size:11px}.note{padding:14px 16px}.hero-meta{gap:8px 16px}.band{padding:20px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.bar-fill{transition:none}}
+@media print{@page{size:A4;margin:16mm 14mm}.rail,.topbar,.mobile-menu,.domain-switch,.copy,.actions,.skip,.chart-top select,.chart-top label,.checklist input{display:none!important}.layout{margin:0}.container{max-width:none;padding:0}body{background:white;font-size:10pt;line-height:1.65;color:#152b35}.hero{padding:0 0 20px}h1{font-size:30pt}.hero-subtitle{font-size:12pt}.hero-panel{padding:20px;grid-template-columns:1fr 1fr;print-color-adjust:exact;-webkit-print-color-adjust:exact}.hero-path{border:0;padding:0}.chapter{padding:24px 0;break-before:auto}.chapter h2{font-size:20pt}.chapter-head{break-after:avoid}.chapter-no{font-size:24pt}h3,h4,summary{break-after:avoid}.table-wrap{overflow:visible;break-inside:auto}table{font-size:8pt}th,td{padding:7px 8px}thead{display:table-header-group}tr{break-inside:avoid}a{color:inherit}.cite{font-size:8pt}.domain-panel[hidden]{display:block!important}.domain-panel{margin:12px 0;break-inside:avoid}.grid-two{gap:18px}.grid-three{display:block}.pipeline{grid-template-columns:repeat(4,1fr);break-inside:avoid}.pipeline>div{padding:14px}.pipeline b{font-size:11pt}.pipeline span{font-size:9pt}.chartbox,.architecture,.note,.verdict,.lineage{break-inside:avoid}.architecture svg{min-width:0}.codebox{break-inside:avoid}.codebox pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:8pt;print-color-adjust:exact;-webkit-print-color-adjust:exact}.bar-fill,.data-split,.tag{print-color-adjust:exact;-webkit-print-color-adjust:exact}.source-list a{font-size:9pt}.print-only{display:block;font-size:9pt;color:#53636a}.endnote{padding:20px 0}.no-print{display:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳转到报告正文</a>
+<aside class="rail" aria-label="报告目录">
+<div class="brand">
+<span class="brand-mark" aria-hidden="true">
+</span>RESEARCH NOTE</div>
+<p class="rail-sub">模型后训练 / 专项方案<br>MiMo × verl · Ornith 1.5</p>
+<nav aria-label="章节导航">
+<a href="#conclusion">
+<span>01</span>结论与适用范围</a>
+<a href="#lineage">
+<span>02</span>模型与训练谱系</a>
+<a href="#mimo-flow">
+<span>03</span>MiMo 完整数据流</a>
+<a href="#data">
+<span>04</span>数据与环境资产</a>
+<a href="#grpo">
+<span>05</span>GRPO / 多 harness</a>
+<a href="#recipes">
+<span>06</span>五领域训练配置</a>
+<a href="#ornith">
+<span>07</span>Ornith 训练方法</a>
+<a href="#results">
+<span>08</span>成绩与横向对比</a>
+<a href="#openness">
+<span>09</span>开放与复现边界</a>
+<a href="#tutorial">
+<span>10</span>MiMo 复现教程</a>
+<a href="#decision">
+<span>11</span>实施路线与验收</a>
+<a href="#fork">
+<span>12</span>长期 fork 建设方案</a>
+<a href="#sources">
+<span>13</span>来源与研究口径</a>
+</nav>
+<div class="rail-bottom">EDITION 01 / 2026.09.28<br>官方资料 · 源码审计 · 复现教程<div class="progress" aria-hidden="true">
+<i>
+</i>
+</div>
+</div>
+</aside>
+<div class="layout">
+<div class="topbar">
+<span>TECHNICAL RESEARCH / 9B AGENTIC RL</span>
+<div class="actions">
+<span class="edition">专项研究报告 · 中文版</span>
+<button class="print-button" type="button">打印 / 存为 PDF</button>
+</div>
+</div>
+<details class="mobile-menu">
+<summary>目录 · 13 个章节</summary>
+<nav aria-label="移动端章节导航">
+<a href="#conclusion">
+<span>01</span>结论与适用范围</a>
+<a href="#lineage">
+<span>02</span>模型与训练谱系</a>
+<a href="#mimo-flow">
+<span>03</span>MiMo 完整数据流</a>
+<a href="#data">
+<span>04</span>数据与环境资产</a>
+<a href="#grpo">
+<span>05</span>GRPO / 多 harness</a>
+<a href="#recipes">
+<span>06</span>五领域训练配置</a>
+<a href="#ornith">
+<span>07</span>Ornith 训练方法</a>
+<a href="#results">
+<span>08</span>成绩与横向对比</a>
+<a href="#openness">
+<span>09</span>开放与复现边界</a>
+<a href="#tutorial">
+<span>10</span>MiMo 复现教程</a>
+<a href="#decision">
+<span>11</span>实施路线与验收</a>
+<a href="#fork">
+<span>12</span>长期 fork 建设方案</a>
+<a href="#sources">
+<span>13</span>来源与研究口径</a>
+</nav>
+</details>
+<main id="main" class="container">
+<header class="hero">
+<div class="kicker">TRAINING SYSTEMS / METHODS / REPRODUCTION</div>
+<h1>从模型蒸馏，<br>到 <em>Agent 自改进。</em>
+</h1>
+<p class="hero-subtitle">MiMo × verl 与 Ornith-1.5-9B 专项方案<br>完整拆解训练路径、数据与奖励，比较已有成绩，集成 MiMo RL 复现教程。</p>
+<div class="hero-meta">
+<span>
+<strong>研究对象</strong>　9B Agentic Models</span>
+<span>
+<strong>核查日期</strong>　2026 / 09 / 28</span>
+<span>
+<strong>证据范围</strong>　官方报告 + 公开源码</span>
+</div>
+<div class="hero-panel">
+<div>
+<p class="small-label">EXECUTIVE FINDING</p>
+<h2>MiMo 提供可审计的 RL 训练路线；<br>Ornith 扩展了自改进的学习对象。</h2>
+<p>两者都有官方成绩。真正的选择题是：你要部署一个模型，还是建立一套可复现的训练能力？</p>
+</div>
+<div class="hero-path">
+<div>
+<b>MiMo</b>
+<span>教师示范 → SFT 起点 → 环境交互 → 领域 RL</span>
+</div>
+<div>
+<b>Ornith</b>
+<span>前代模型 → 任务生成 → scaffold → rollout</span>
+</div>
+<div>
+<b>落地</b>
+<span>锁定资产 → 环境验收 → 短程训练 → 独立评测</span>
+</div>
+</div>
+</div>
+</header>
+<section id="conclusion" class="chapter" aria-labelledby="conclusion-title">
+<header class="chapter-head">
+<span class="chapter-no">01</span>
+<div>
+<p class="eyebrow">RESEARCH / 01</p>
+<h2 id="conclusion-title">先给结论：两条路径，两种开放重点</h2>
+<p class="lead">MiMo 已有 9B RL 实验成绩；Ornith 已发布多能力模型。训练过程的透明度与模型分数，需要分别评价。</p>
+</div>
+</header>
+<div class="grid-three">
+<article class="verdict">
+<span class="label">MiMo / 已有实验</span>
+<h3>从强 SFT 起点继续 RL</h3>
+<p>Qwen3.5-9B 经 MiMo 生成数据蒸馏后，再分别进行领域 GRPO。官方表 6 的 11 项评测均提高；音乐另有结果。不是只公开训练脚本。</p>
+<a class="cite" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Pro-RL/blob/main/MiMo_V2_6_technical_report.pdf" target="_blank" rel="noopener noreferrer">§7.2 / 表 6 ↗</a>
+</article>
+<article class="verdict">
+<span class="label">ORNITH / 已发布模型</span>
+<h3>把任务与 scaffold 纳入学习</h3>
+<p>Ornith 1.5 在前代基础上扩大自改进循环：生成任务、构造执行框架，再学习解题策略。发布的 9B 模型覆盖编程、推理与工具任务。</p>
+<a class="cite" href="https://huggingface.co/ornith-ai/Ornith-1.5-9B" target="_blank" rel="noopener noreferrer">模型卡 ↗</a>
+<a class="cite" href="https://ornith.ai/ornith_1_5.html" target="_blank" rel="noopener noreferrer">方法 ↗</a>
+</article>
+<article class="verdict">
+<span class="label">复现 / 工程判断</span>
+<h3>MiMo 更适合拆解训练系统</h3>
+<p>当前证据中，MiMo 提供可审计的 verl recipe、环境与评分接口；Ornith 的方法披露应与可下载训练资产分开看。该判断不等于模型能力排名。</p>
+<a class="cite" href="https://github.com/XiaomiMiMo/verl/tree/a2ad9f6160b03ff2d47e59832bfb6b289f37c917" target="_blank" rel="noopener noreferrer">源码 ↗</a>
+</article>
+</div>
+<div class="note">
+<strong>本文的证据口径</strong>
+<p>
+<span class="tag fact">源码核实</span> 表示已检查公开配置；<span class="tag report">官方报告</span> 表示作者公布的实验；<span class="tag open">尚未核实</span> 表示证据缺口。本报告未实际运行 GPU 训练，也不将官方结果称为独立复现。</p>
+</div>
+</section>
+<section id="lineage" class="chapter" aria-labelledby="lineage-title">
+<header class="chapter-head">
+<span class="chapter-no">02</span>
+<div>
+<p class="eyebrow">RESEARCH / 02</p>
+<h2 id="lineage-title">先分清模型谱系，再比较训练收益</h2>
+<p class="lead">“SFT”指小米发布的 MiMo-V2.6-Distill-Qwen-9B；“RL”指从这个起点继续训练出的领域模型。</p>
+</div>
+</header>
+<div class="lineage">
+<p class="small-label">MiMo · 9B 路线</p>
+<div class="lineage-row">
+<strong>Qwen3.5-9B</strong>
+<span class="arrow">→</span>
+<span>MiMo 生成数据 / SFT</span>
+<span class="arrow">→</span>
+<strong>MiMo Distill 9B</strong>
+<span class="arrow">→</span>
+<span>分领域 GRPO</span>
+<span class="arrow">→</span>
+<strong>领域 RL checkpoint</strong>
+</div>
+<p class="compact muted">公开模型卡对应中间的 SFT checkpoint；论文 RL 列对应后续训练结果。Code 另有独立 multi-harness 实验。</p>
+<a class="cite" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+<a class="cite" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Pro-RL/blob/main/MiMo_V2_6_technical_report.pdf" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</div>
+<div class="lineage" style="margin-top:16px">
+<p class="small-label">ORNITH · 另一条模型谱系</p>
+<div class="lineage-row">
+<strong>Qwen3.5 家族起点</strong>
+<span class="arrow">→</span>
+<span>Ornith 1.0 的继续训练</span>
+<span class="arrow">→</span>
+<strong>Ornith 1.0-9B</strong>
+<span class="arrow">→</span>
+<span>扩展自改进</span>
+<span class="arrow">→</span>
+<strong>Ornith 1.5-9B</strong>
+</div>
+<p class="compact muted">官方对 CPT / mid-training / post-training 的描述主要在家族层面；不据此补写 9B 各阶段的具体数据量、顺序或超参数。Ornith 不是 MiMo SFT 的后续版本。</p>
+<a class="cite" href="https://huggingface.co/ornith-ai/Ornith-1.5-9B" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</div>
+<div class="grid-two">
+<div>
+<h3>蒸馏 / SFT 学什么？</h3>
+<p>通过教师生成的任务求解示范，学习行动方式、工具调用和完成任务的模式。监督目标来自示范 token，而不是本次自主探索的成败。</p>
+</div>
+<div>
+<h3>Agentic RL 学什么？</h3>
+<p>模型在环境中自行行动，根据测试或 grader 的反馈调整策略。一个问题产生多条轨迹，比较结果后更新参数；训练数据会随策略变化。</p>
+</div>
+</div>
+<div class="note teal">
+<strong>不要把大模型路线直接套在 9B 上</strong>
+<p>MiMo 旗舰模型报告包含多领域混合 RL、GRS / GAR 等方法；§7 的 9B 开放基线是分别训练的领域 GRPO。若要声称某高级方法已进入公开 9B recipe，必须有相应代码证据。</p>
+</div>
+</section>
+<div class="note"><strong>Harbor、环境与 Pro 训练方法的边界</strong><p>GRPO 是算法，Harbor 是任务执行/评测框架，两者不是替代关系。公开 9B 方案包含 mimoagent、K8s 任务 Pod、工具与 grader；当前审计的 recipe/依赖没有发现 Harbor 主训练链，General 仅见 manifest 对齐及迁移注释。它也不是 MiMo Pro 混合 RL、GRS/GAR、MOPD2 的完整缩小版。xDAN 若统一 Harbor 任务，应建立单独的环境适配层，并明确每项高级方法的实现与验收范围。</p><a class="cite" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/recipes/general/general_agent/environment.py" target="_blank" rel="noopener noreferrer">General 环境契约 ↗</a></div>
+<section id="mimo-flow" class="chapter" aria-labelledby="mimo-flow-title">
+<header class="chapter-head">
+<span class="chapter-no">03</span>
+<div>
+<p class="eyebrow">RESEARCH / 03</p>
+<h2 id="mimo-flow-title">MiMo 全流程：从任务到参数更新</h2>
+<p class="lead">阅读这套方案的最短路径，是沿着“任务 → 执行 → 奖励 → 轨迹 → 更新”追踪每一个接口。</p>
+</div>
+</header>
+<div class="pipeline">
+<div>
+<small>01 / INITIALIZE</small>
+<b>装载 SFT 模型</b>
+<span>tokenizer、chat template、reasoning 与工具协议必须对齐。</span>
+</div>
+<div>
+<small>02 / SAMPLE</small>
+<b>抽取任务与环境</b>
+<span>读取 prompt 和任务元数据，选择 harness，准备任务沙箱。</span>
+</div>
+<div>
+<small>03 / INTERACT</small>
+<b>生成多条完整轨迹</b>
+<span>模型输出行动，工具返回 observation，多轮运行至结束或预算耗尽。</span>
+</div>
+<div>
+<small>04 / OPTIMIZE</small>
+<b>评分与 GRPO 更新</b>
+<span>归集 trajectory / reward，计算 advantage，更新 policy，重复下一批。</span>
+</div>
+</div>
+<figure class="architecture">
+<div class="diagram-scroll">
+<svg viewBox="0 0 900 350" role="img" aria-labelledby="flowTitle flowDesc">
+<title id="flowTitle">MiMo Code 训练数据流</title>
+<desc id="flowDesc">任务和策略模型通过 uni-agent 网关接入 mimoagent 与 Kubernetes 沙箱，轨迹和奖励回流 verl 的 GRPO 优化器。</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M0 0 L10 5 L0 10z" fill="#17665e"/>
+</marker>
+</defs>
+<g font-family="-apple-system,PingFang SC,sans-serif" font-size="14" fill="#172a35">
+<g fill="#edf4ee" stroke="#aac7ba">
+<rect x="20" y="30" width="180" height="66" rx="3"/>
+<rect x="260" y="30" width="200" height="66" rx="3"/>
+<rect x="520" y="30" width="170" height="66" rx="3"/>
+<rect x="520" y="165" width="170" height="66" rx="3"/>
+<rect x="260" y="165" width="200" height="66" rx="3"/>
+<rect x="20" y="165" width="180" height="66" rx="3"/>
+</g>
+<rect x="730" y="165" width="150" height="66" rx="3" fill="#fcf0e8" stroke="#dba884"/>
+<text x="110" y="57" text-anchor="middle">SGLang / policy</text>
+<text x="110" y="79" text-anchor="middle" font-size="11" fill="#53636a">多轮 token 生成</text>
+<text x="360" y="57" text-anchor="middle">uni-agent gateway</text>
+<text x="360" y="79" text-anchor="middle" font-size="11" fill="#53636a">模型请求与 session</text>
+<text x="605" y="57" text-anchor="middle">mimoagent</text>
+<text x="605" y="79" text-anchor="middle" font-size="11" fill="#53636a">harness / 工具</text>
+<text x="605" y="192" text-anchor="middle">K8s 任务环境</text>
+<text x="605" y="214" text-anchor="middle" font-size="11" fill="#53636a">仓库 / 命令 / tests</text>
+<text x="360" y="192" text-anchor="middle">TransferQueue / 轨迹</text>
+<text x="360" y="214" text-anchor="middle" font-size="11" fill="#53636a">session reward payload</text>
+<text x="110" y="192" text-anchor="middle">verl / Megatron</text>
+<text x="110" y="214" text-anchor="middle" font-size="11" fill="#53636a">GRPO 参数更新</text>
+<text x="805" y="192" text-anchor="middle">Verifier</text>
+<text x="805" y="214" text-anchor="middle" font-size="11" fill="#53636a">测试结果 / 奖励</text>
+<g stroke="#17665e" fill="none" stroke-width="1.8" marker-end="url(#arrow)">
+<path d="M200 63H258"/>
+<path d="M460 63H518"/>
+<path d="M605 96V163"/>
+<path d="M690 198H728"/>
+<path d="M805 231V270H360V233"/>
+<path d="M260 198H202"/>
+<path d="M110 165V98"/>
+</g>
+<path d="M520 198H462" stroke="#17665e" stroke-width="1.8" marker-end="url(#arrow)"/>
+<text x="450" y="320" text-anchor="middle" font-size="12" fill="#53636a">任务元数据指定实例与镜像；GRPO 更新后的 policy 用于下一轮采样。</text>
+</g>
+</svg>
+</div>
+<figcaption>Code 专用路径的概念化整理。Cyber / General / Visual 直接从 verl AgentLoop 驱动 mimoagent，不经 uni-agent；Music 使用独立生成与评分路径。<a class="cite" href="https://github.com/XiaomiMiMo/verl/tree/a2ad9f6160b03ff2d47e59832bfb6b289f37c917" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</figcaption>
+</figure>
+<div class="grid-two">
+<div>
+<h3>轨迹不只是最终答案</h3>
+<p>包括模型输出、工具调用、环境观察及终止状态。训练时需要区分参与 policy loss 的 token 与环境反馈；上下文预算和训练 token 数也不是同一个概念。</p>
+</div>
+<div>
+<h3>reward 不是脚本名称</h3>
+<p>Code 正常奖励来自 runner session 的 payload；小型 <code>reward.py</code> 是 fallback hook。<code>main_ppo</code> 或 <code>reward_manager: dapo</code> 的名字不改变已配置的 GRPO estimator。</p>
+</div>
+</div>
+</section>
+<section id="data" class="chapter" aria-labelledby="data-title">
+<header class="chapter-head">
+<span class="chapter-no">04</span>
+<div>
+<p class="eyebrow">RESEARCH / 04</p>
+<h2 id="data-title">数据：示范语料与可执行任务是两种资产</h2>
+<p class="lead">SFT 的 77.4B tokens、RL 的约 8k 任务、训练中实时产生的 rollout，不能互相替代。</p>
+</div>
+</header>
+<div class="grid-two">
+<article>
+<p class="small-label">SFT / 教师示范</p>
+<span class="number">77.4B <small style="font-size:14px">tokens</small>
+</span>
+<p class="compact">官方报告的<strong>加权数据混合</strong>总 token 数，其中 27.2B 为 loss-bearing tokens。不能解释成 77.4B 独立、不重复的原始语料。</p>
+</article>
+<article>
+<p class="small-label">RL / 任务与环境</p>
+<span class="number">≈8k <small style="font-size:14px">tasks</small>
+</span>
+<p class="compact">论文约数：Code 3k、Cyber 1k、General 1k、Visual 2k，另加音乐约 1k。任务可以重复采样产生多条轨迹，任务数不等于训练样本数。</p>
+</article>
+</div>
+<div class="data-split" role="img" aria-label="SFT token占比：Code29.9%、Cyber14.2%、General28.5%、Visual27.4%">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="MiMo 技术报告表 4；数值经过四舍五入。">
+<table>
+<caption>MiMo 技术报告表 4；数值经过四舍五入。</caption>
+<thead>
+<tr>
+<th scope="col">SFT 领域</th>
+<th scope="col">总 tokens</th>
+<th scope="col">混合占比</th>
+<th scope="col">参与 loss 的 tokens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Code</th>
+<td>23.2B</td>
+<td>29.9%</td>
+<td>7.3B</td>
+</tr>
+<tr>
+<th scope="row">Cyber</th>
+<td>11.0B</td>
+<td>14.2%</td>
+<td>4.8B</td>
+</tr>
+<tr>
+<th scope="row">General</th>
+<td>22.0B</td>
+<td>28.5%</td>
+<td>5.7B</td>
+</tr>
+<tr>
+<th scope="row">Visual</th>
+<td>21.2B</td>
+<td>27.4%</td>
+<td>9.4B</td>
+</tr>
+<tr>
+<th scope="row">合计</th>
+<td>77.4B</td>
+<td>100%</td>
+<td>27.2B</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="evidence">
+<a class="cite" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Pro-RL/blob/main/MiMo_V2_6_technical_report.pdf" target="_blank" rel="noopener noreferrer">表 4 / 5 ↗</a> 本次公开 RL 数据集不是上述 SFT 全量语料的下载地址。</p>
+<h3>一条 RL 任务实际上包含什么？</h3>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制下方命令">复制</button>
+<pre>
+<code>{
+  &quot;data_source&quot;: &quot;opensource-code&quot;,
+  &quot;ability&quot;: &quot;swe&quot;,
+  &quot;agent_name&quot;: &quot;mimo_swe_agent&quot;,
+  &quot;prompt&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;任务要求…&quot;}],
+  &quot;reward_model&quot;: {&quot;ground_truth&quot;: &quot;&quot;, &quot;style&quot;: &quot;rule&quot;},
+  &quot;extra_info&quot;: {&quot;instance_json&quot;: &quot;环境、工作目录、镜像与任务元数据…&quot;}
+}</code>
+</pre>
+</div>
+<p class="compact muted">基于数据预览简化的结构示意，不是可直接执行的样本。<code>ground_truth</code> 为空并不意味着没有监督信号：Code 的监督来自环境测试。<a class="cite" href="https://huggingface.co/datasets/XiaomiMiMo/MiMo-V2.6-RL-oss" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</p>
+<div class="note teal">
+<strong>完整数据闭环</strong>
+<p>任务定义 + 初始环境 + verifier → 当前策略生成轨迹 → 评分与过滤 → 更新。只下载 parquet 而缺少镜像、grader 或共享文件，无法构成等价 RL 实验。</p>
+</div>
+<details>
+<summary>展开公开数据的精确数量与真实文件布局</summary>
+<div>
+<p>2026-09-28，HF datasets-server 的完整计数为：Code <strong>2,698</strong>、Cyber <strong>1,000</strong>、General <strong>989</strong>、Music <strong>1,000</strong>、Webdev <strong>2,093</strong>，合计 <strong>7,780</strong>。正文“约 8k”沿用论文近似表达，不是另一个精确总数。</p>
+<p>文件包含四个顶层 parquet、<code>general/train.parquet</code>、<code>general/envs/</code> 与 <code>image-mapping.jsonl</code>。General 任务行数与 envs 目录数并非一一相等，需核对任务引用而非按目录计数替代。</p>
+<p>镜像映射有 3,764 条，映射的是旧任务镜像名到公开 Docker Hub tag，<strong>不是简单追加一个仓库前缀</strong>。例如 <code>arvo-rl:v1-arvo-10055</code> 对应 <code>docker.io/xiaomimimo/mimo-v2.6-rl-oss:arvo-v1-10055</code>。下载映射文件后，必须按实际字段解析并验证所选任务。</p>
+<p>
+<a class="cite" href="https://datasets-server.huggingface.co/size?dataset=XiaomiMiMo%2FMiMo-V2.6-RL-oss" target="_blank" rel="noopener noreferrer">HF 数据计数 API ↗</a>
+<a class="cite" href="https://huggingface.co/datasets/XiaomiMiMo/MiMo-V2.6-RL-oss/tree/main" target="_blank" rel="noopener noreferrer">数据文件树 ↗</a>
+</p>
+</div>
+</details>
+
+</section>
+<section id="grpo" class="chapter" aria-labelledby="grpo-title">
+<header class="chapter-head">
+<span class="chapter-no">05</span>
+<div>
+<p class="eyebrow">RESEARCH / 05</p>
+<h2 id="grpo-title">GRPO 与多 harness：分别优化什么？</h2>
+<p class="lead">一个优化“在同一任务上的行动”，另一个避免策略只适应单一执行框架。</p>
+</div>
+</header>
+<div class="formula">Aᵢ ∝ rᵢ − mean(r₁, …, rG)<small>概念示意：比较同任务一组 rollout 的奖励。是否除以组内标准差、如何归约及过滤，以具体 recipe 为准；不能将该式视为所有脚本的完整 loss。</small>
+</div>
+<div class="steps">
+<div class="step">
+<div>
+<h3>同任务采样多条解法</h3>
+<p>Code / Cyber 参考组大小为 16，其余路线为 8。多条解法给相对比较提供信号，也成倍增加环境执行量。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>Verifier 产生奖励</h3>
+<p>代码测试偏向可验证结果；知识工作依赖 rubric judge；网页还涉及视觉评审。评分服务不可用不能被当成模型失败。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>根据 advantage 更新策略</h3>
+<p>奖励更优的行为获得正向学习信号。Code 的配置包含动态 group filter、prompt-mean 与关闭 GRPO 标准差归一化等细节。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>进入下一轮，并独立评估</h3>
+<p>更新后策略继续生成新轨迹。训练 reward 上升不能单独证明能力提升，还要检查固定验证集、未见 harness 与失败率。</p>
+</div>
+</div>
+</div>
+<h3>多 harness 实验，不是多个商业模型一起训练</h3>
+<p>Code 配置中的 <code>mini-mimocode / mini-bash / mini-claude-code / mini-codex</code> 是不同执行框架。它们通过统一模型网关使用 policy；名称不代表在训练四家商业模型。默认 step-hash 分配让同一 GRPO group 保持相同 harness，再随 step 轮换。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="独立 multi-harness 实验；不可与表 6 single-harness 结果混为同一运行。">
+<table>
+<caption>独立 multi-harness 实验；不可与表 6 single-harness 结果混为同一运行。</caption>
+<thead>
+<tr>
+<th scope="col">表 7 · 七 harness 平均</th>
+<th scope="col">MiMo SFT</th>
+<th scope="col">Multi-harness RL</th>
+<th scope="col">增益</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">SWE-bench Verified</th>
+<td>62.3</td>
+<td>65.7</td>
+<td>+3.4</td>
+</tr>
+<tr>
+<th scope="row">SWE-bench Pro</th>
+<td>44.4</td>
+<td>46.5</td>
+<td>+2.1</td>
+</tr>
+<tr>
+<th scope="row">MiMo Code mini¹</th>
+<td>53.1</td>
+<td>59.0</td>
+<td>+5.9</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="evidence">四种训练 harness + 三种未见 harness；作者报告 21 个数据集–harness 组合均较 SFT 提升。¹ 内部评测集。<a class="cite" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Pro-RL/blob/main/MiMo_V2_6_technical_report.pdf" target="_blank" rel="noopener noreferrer">表 7 ↗</a>
+</p>
+</section>
+<section id="recipes" class="chapter" aria-labelledby="recipes-title">
+<header class="chapter-head">
+<span class="chapter-no">06</span>
+<div>
+<p class="eyebrow">RESEARCH / 06</p>
+<h2 id="recipes-title">五条训练路线与真实部署依赖</h2>
+<p class="lead">源码参考配置采用 GRPO + SGLang rollout + Megatron actor；环境、grader 与并行设置因领域而异。</p>
+</div>
+</header>
+<div class="table-wrap" tabindex="0" role="region" aria-label="参考 wrapper 的生效默认值；不是最低硬件要求。">
+<table>
+<caption>参考 wrapper 的生效默认值；不是最低硬件要求。</caption>
+<thead>
+<tr>
+<th scope="col">领域</th>
+<th scope="col">任务 / 验证</th>
+<th scope="col">Agent 接入</th>
+<th scope="col">节点 × GPU/节点</th>
+<th scope="col">GRPO 组大小</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Code</th>
+<td>软件工程 / 执行测试</td>
+<td>mimoagent + uni-agent</td>
+<td>8 × 8</td>
+<td>16</td>
+</tr>
+<tr>
+<th scope="row">Cyber</th>
+<td>漏洞复现 / 规则检查</td>
+<td>mimoagent / AgentLoop</td>
+<td>8 × 8</td>
+<td>16</td>
+</tr>
+<tr>
+<th scope="row">General</th>
+<td>知识工作 / rubric judge</td>
+<td>mimoagent / AgentLoop</td>
+<td>4 × 8</td>
+<td>8</td>
+</tr>
+<tr>
+<th scope="row">Visual</th>
+<td>网页构建 / 视觉评分</td>
+<td>mimoagent / AgentLoop</td>
+<td>8 × 8</td>
+<td>8</td>
+</tr>
+<tr>
+<th scope="row">Music</th>
+<td>符号音乐 / 规则评分</td>
+<td>独立生成 + CPU scorer</td>
+<td>8 × 8</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="domain-switch" role="group" aria-label="选择领域查看配置">
+<button type="button" data-domain="code" aria-pressed="true" aria-controls="panel-code">Code</button>
+<button type="button" data-domain="cyber" aria-pressed="false" aria-controls="panel-cyber">Cyber</button>
+<button type="button" data-domain="general" aria-pressed="false" aria-controls="panel-general">General</button>
+<button type="button" data-domain="visual" aria-pressed="false" aria-controls="panel-visual">Visual</button>
+<button type="button" data-domain="music" aria-pressed="false" aria-controls="panel-music">Music</button>
+</div>
+<article class="domain-panel" id="panel-code">
+<p class="small-label">REFERENCE RECIPE / CODE</p>
+<h3>Code / 软件工程</h3>
+<dl>
+<dt>启动入口</dt>
+<dd>
+<code>scripts/code/train.sh</code>
+</dd>
+<dt>变量说明</dt>
+<dd>
+<code>scripts/code/env.example</code>
+</dd>
+<dt>核心配置</dt>
+<dd>
+<code>recipes/code/config/train.yaml</code>
+</dd>
+<dt>参考训练设置</dt>
+<dd>64；200 steps；LR 1e-6</dd>
+<dt>最大窗口配置</dt>
+<dd>262,144 tokens</dd>
+<dt>基础设施</dt>
+<dd>K8s、Ray、任务镜像、共享路径、uni-agent 与 mimoagent。Code wrapper 覆盖基础 YAML：节点从 4 变 8，batch 从 32 变 64，CP 从 2 变 1。</dd>
+</dl>
+<div class="note">
+<p>正常奖励从 runner session 返回；保留 resolved config 与 run manifest，不能只保存启动命令。</p>
+</div>
+<a class="cite" target="_blank" rel="noopener noreferrer" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/code/train.sh">查看固定提交的启动脚本 ↗</a>
+</article>
+<article class="domain-panel" id="panel-cyber" hidden>
+<p class="small-label">REFERENCE RECIPE / CYBER</p>
+<h3>Cyber / 漏洞复现</h3>
+<dl>
+<dt>启动入口</dt>
+<dd>
+<code>scripts/arvo/arvo.sh</code>
+</dd>
+<dt>变量说明</dt>
+<dd>
+<code>scripts/arvo/arvo.env.example</code>
+</dd>
+<dt>核心配置</dt>
+<dd>
+<code>recipes/arvo/config/arvo.yaml</code>
+</dd>
+<dt>参考训练设置</dt>
+<dd>以 recipe 为准；300 steps</dd>
+<dt>最大窗口配置</dt>
+<dd>262,144 tokens</dd>
+<dt>基础设施</dt>
+<dd>ARVO parquet、任务镜像与 K8s Pod；policy checkpoint 路径需要自行提供。</dd>
+</dl>
+<div class="note">
+<p>colocate async；off-policy threshold 8。只在配套隔离任务环境内进行漏洞复现与验证。</p>
+</div>
+<a class="cite" target="_blank" rel="noopener noreferrer" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/arvo/arvo.sh">查看固定提交的启动脚本 ↗</a>
+</article>
+<article class="domain-panel" id="panel-general" hidden>
+<p class="small-label">REFERENCE RECIPE / GENERAL</p>
+<h3>General / 知识工作</h3>
+<dl>
+<dt>启动入口</dt>
+<dd>
+<code>scripts/general/general.sh</code>
+</dd>
+<dt>变量说明</dt>
+<dd>
+<code>scripts/general/general.env.example</code>
+</dd>
+<dt>核心配置</dt>
+<dd>
+<code>recipes/general/config/general.yaml</code>
+</dd>
+<dt>参考训练设置</dt>
+<dd>64；5 epochs；LR 2e-6</dd>
+<dt>最大窗口配置</dt>
+<dd>262,144 tokens</dd>
+<dt>基础设施</dt>
+<dd>每次 rollout 使用双容器 Pod；任务 envs/ 与 parquet/、镜像仓库、兼容 API 的 judge。</dd>
+</dl>
+<div class="note">
+<p>trainer 为 sync；rollout.mode=async 不等于整体异步训练。judge 不通可能产生全零奖励；基础设施失败用 sentinel 区分。</p>
+</div>
+<a class="cite" target="_blank" rel="noopener noreferrer" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/general/general.sh">查看固定提交的启动脚本 ↗</a>
+</article>
+<article class="domain-panel" id="panel-visual" hidden>
+<p class="small-label">REFERENCE RECIPE / VISUAL</p>
+<h3>Visual / 网页开发</h3>
+<dl>
+<dt>启动入口</dt>
+<dd>
+<code>scripts/design/webdev.sh</code>
+</dd>
+<dt>变量说明</dt>
+<dd>
+<code>scripts/design/webdev.env.example</code>
+</dd>
+<dt>核心配置</dt>
+<dd>
+<code>recipes/design/config/</code>
+</dd>
+<dt>参考训练设置</dt>
+<dd>以 resolved config 为准</dd>
+<dt>最大窗口配置</dt>
+<dd>262,144 tokens</dd>
+<dt>基础设施</dt>
+<dd>浏览器 / egress proxy、共享截图目录、group-capable grading service、视觉 judge。</dd>
+</dl>
+<div class="note">
+<p>训练是组内相对排名，评估是绝对评分；两类曲线不能直接比较。共享路径错误也可能造成零奖励。</p>
+</div>
+<a class="cite" target="_blank" rel="noopener noreferrer" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/design/webdev.sh">查看固定提交的启动脚本 ↗</a>
+</article>
+<article class="domain-panel" id="panel-music" hidden>
+<p class="small-label">REFERENCE RECIPE / MUSIC</p>
+<h3>Music / 符号音乐</h3>
+<dl>
+<dt>启动入口</dt>
+<dd>
+<code>scripts/design/music.sh</code>
+</dd>
+<dt>变量说明</dt>
+<dd>
+<code>scripts/design/music.env.example</code>
+</dd>
+<dt>核心配置</dt>
+<dd>
+<code>recipes/design/config/music.yaml</code>
+</dd>
+<dt>参考训练设置</dt>
+<dd>以 resolved config 为准</dd>
+<dt>最大窗口配置</dt>
+<dd>116,384 tokens</dd>
+<dt>基础设施</dt>
+<dd>abc2midi、worker CPU scorer；不使用 mimoagent / uni-agent 两个子模块。</dd>
+</dl>
+<div class="note">
+<p>单轮符号音乐；response budget 100,000。缺少 abc2midi 会跳过样本并记零奖励；CP=1 不宜随意修改。</p>
+</div>
+<a class="cite" target="_blank" rel="noopener noreferrer" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/design/music.sh">查看固定提交的启动脚本 ↗</a>
+</article>
+<div class="note">
+<strong>9B 不等于轻量训练</strong>
+<p>成本由长轨迹、多 rollout、环境并发、评分和优化共同决定。上述 32 / 64 GPU 是官方参考拓扑，不是本报告实测，也不代表单卡推理配置可以直接用于 RL。具体卡型、显存下限和总费用需要预实验。</p>
+</div>
+</section>
+<section id="ornith" class="chapter" aria-labelledby="ornith-title">
+<header class="chapter-head">
+<span class="chapter-no">07</span>
+<div>
+<p class="eyebrow">RESEARCH / 07</p>
+<h2 id="ornith-title">Ornith 深入拆解：从 self-scaffolding 到 self-improvement</h2>
+<p class="lead">这里解释作者公开的方法与证据缺口；方法级介绍不等于可下载的完整 9B 训练配方。</p>
+</div>
+</header>
+<div class="band">
+<p class="small-label" style="color:#efb28d">METHOD / 三个学习对象</p>
+<h3>不只优化答案，也优化“学什么”和“怎样解”</h3>
+<p>系统以环境或代码库、任务类型指令和既往解题历史为输入，提出新任务；再生成或改进 scaffold，最后让 policy 在这个框架内执行。反馈分别用于任务、harness 和解题 rollout 的 GRPO 优化。<a class="cite" href="https://ornith.ai/ornith_1_5.html" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</p>
+</div>
+<div class="pipeline">
+<div>
+<small>INPUT</small>
+<b>环境 + 解题历史</b>
+<span>提供任务类型与当前能力的反馈。初始环境和数据来源仍需人为建立。</span>
+</div>
+<div>
+<small>STAGE 1</small>
+<b>Task proposer</b>
+<span>提出可验证、有挑战且不重复的任务，把学习推向能力边缘。</span>
+</div>
+<div>
+<small>STAGE 2</small>
+<b>Scaffold / harness</b>
+<span>构造指令、工具、任务分解、编排及评估环境。</span>
+</div>
+<div>
+<small>STAGE 3</small>
+<b>Solution rollout</b>
+<span>执行解题并获得奖励，反馈推动下一周期的任务与策略改进。</span>
+</div>
+</div>
+<div class="loop-footer">已解决的任务变容易 → 难度奖励下降 → 任务生成器寻找新的、仍可学习的问题</div>
+<h3>三个奖励，承担三个不同责任</h3>
+<div class="formula">R_task = Validity × Difficulty × Novelty<small>三个因素相乘：无效任务即使“很难”或“很新”，也不应得到高奖励。</small>
+</div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="数据表">
+<table>
+<thead>
+<tr>
+<th scope="col">信号</th>
+<th scope="col">官方描述</th>
+<th scope="col">工程含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Validity · 有效且可验证</th>
+<td>检查环境能执行、已知正确解通过、明显错误解失败、评估符合要求；可作为硬门槛。</td>
+<td>先检查 grader，而不是让模型自己给自己高分。</td>
+</tr>
+<tr>
+<th scope="row">Difficulty · 能力边缘</th>
+<td>由当前 rollout 的成功率 p 衡量，目标 p* = 0.2；使用围绕目标的高斯形奖励。</td>
+<td>成功率过高趋于饱和，过低缺少有效学习信号；0.2 是该文方法设定，不是通用定律。</td>
+</tr>
+<tr>
+<th scope="row">Novelty · 非重复</th>
+<td>与既往任务 buffer 中最相近任务的相似度相减。</td>
+<td>降低重复题目占比；相似度实现和 buffer 规模未披露。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="formula">D = exp(−(p − 0.2)² / (2σ²))<br>N(q) = 1 − max similarity(q, previous tasks)<small>公式按官方方法说明重排；σ、相似度模型及详细校准实现未在所查材料中披露。</small>
+</div>
+<div class="grid-two">
+<article>
+<h3>Harness 奖励</h3>
+<p>
+<strong>任务对齐 × 奖励保真 × 抗作弊。</strong>评估器要反映任务目标，能区分解法质量，也要抵御利用评估器漏洞的行为。</p>
+<p class="compact muted">需要独立检查机制；生成 harness 本身不保证奖励可靠。</p>
+</article>
+<article>
+<h3>Rollout 奖励</h3>
+<p>由 harness 评估实际解题结果。可验证任务可用二值成败；复杂任务可组合正确性、完成度、效率和约束满足。</p>
+<p class="compact muted">博客称三阶段均用各自奖励进行 GRPO；未给出 9B 的完整优化参数或参数共享策略。</p>
+</article>
+</div>
+<h3>训练路径与数据：哪些确实披露了？</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="方法描述以家族材料为主；不能反推一份完整、9B 专属的可执行配方。">
+<table>
+<caption>方法描述以家族材料为主；不能反推一份完整、9B 专属的可执行配方。</caption>
+<thead>
+<tr>
+<th scope="col">阶段</th>
+<th scope="col">已披露</th>
+<th scope="col">未披露 / 不应推断</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Ornith 1.0 前置训练</th>
+<td>家族在 Qwen3.5 / Gemma 4 上做 continued pretraining、mid-training、post-training；9B 属 Qwen 路线。</td>
+<td>9B 的 CPT 数据集清单、token 数、混合权重；不能把 Gemma 4 同时列为 9B 的基座。</td>
+</tr>
+<tr>
+<th scope="row">1.0 Self-scaffolding</th>
+<td>任务与旧 scaffold → 改进 scaffold → rollout，奖励传给两个阶段。</td>
+<td>完整可运行训练栈、公开的逐阶段数据配方与复现超参数。</td>
+</tr>
+<tr>
+<th scope="row">1.5 自生成任务</th>
+<td>用环境/代码库、类型指令、历史表现生成题目；根据有效性、难度与新颖性选择学习信号。</td>
+<td>初始代码库/环境清单、总任务数、去重实现、训练/评测隔离清单。</td>
+</tr>
+<tr>
+<th scope="row">在线轨迹</th>
+<td>根据 task + scaffold 生成 solution rollout；三阶段均以 GRPO 更新。</td>
+<td>9B rollout 总量、group size、学习率、GPU-hours、确切训练预算。</td>
+</tr>
+<tr>
+<th scope="row">发布结果</th>
+<td>Ornith-1.5-9B 权重、模型卡、推理与评测设置。</td>
+<td>在所查官方入口未发现对应的完整训练数据与 end-to-end 训练代码。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<details>
+<summary>前代 Ornith 1.0：异步训练与反作弊边界</summary>
+<div>
+<p>1.0 先根据任务和旧 scaffold 生成改进框架，再执行 rollout；解题反馈传到两个阶段。它已包含 RL，不能把 Ornith 1.0 称为 SFT 基线。</p>
+<div class="grid-two">
+<article>
+<h4>Pipeline-RL / token 陈旧度</h4>
+<p>旧策略产生的 token 随训练推进逐渐过时。官方描述使用分段权重：新鲜 token 保持权重 1，中间区间指数衰减，超过阈值置零；该权重乘在 token 级 GRPO 目标上。</p>
+<p class="compact muted">K₁、K₂、λ 未给出具体值；不能断言 1.5 原样沿用所有设置。</p>
+</article>
+<article>
+<h4>三个不可省略的控制面</h4>
+<p>外部环境、工具面和测试隔离保持固定；确定性 monitor 将越界轨迹记零并排除 advantage；冻结 LLM judge 只作否决器。模型可改变内部记忆、错误处理与编排，不意味着任意修改外部 verifier。</p>
+</article>
+</div>
+<p>
+<a class="cite" target="_blank" rel="noopener noreferrer" href="https://ornith.ai/ornith_1_0.html">Ornith 1.0 官方方法 ↗</a>
+</p>
+</div>
+</details>
+<p class="evidence">1.0 → 1.5 的分数差是版本整体变化，不是新增 task generation 的单因素因果收益；所查材料没有足够消融来完成归因。</p>
+
+<div class="note">
+<strong>“自生成”不等于无数据，也不等于无需外部监督</strong>
+<p>种子环境、代码库、历史任务、有效性验证及 anti-hacking 检查仍然提供先验与约束。真正需要审计的是数据从哪里来、验证是否独立、评测是否隔离；不能仅用“self-improvement”替代这些证据。</p>
+</div>
+</section>
+<section id="results" class="chapter" aria-labelledby="results-title">
+<header class="chapter-head">
+<span class="chapter-no">08</span>
+<div>
+<p class="eyebrow">RESEARCH / 08</p>
+<h2 id="results-title">已有成绩：分别看阶段收益与最终能力</h2>
+<p class="lead">官方已验证 MiMo 9B 从 SFT 到 RL 的提升；跨模型比较则必须保留测试条件。</p>
+</div>
+</header>
+<div class="table-wrap" tabindex="0" role="region" aria-label="MiMo 官方表 6；RL 为分领域训练结果。¹ 内部评测集。">
+<table>
+<caption>MiMo 官方表 6；RL 为分领域训练结果。¹ 内部评测集。</caption>
+<thead>
+<tr>
+<th scope="col">Benchmark</th>
+<th scope="col">指标</th>
+<th scope="col">Qwen3.5-9B</th>
+<th scope="col">MiMo SFT</th>
+<th scope="col">MiMo RL</th>
+<th scope="col">RL − SFT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">SWE-bench Verified</th>
+<td>avg@3</td>
+<td>60.0</td>
+<td>61.1</td>
+<td>66.2</td>
+<td>+5.1</td>
+</tr>
+<tr>
+<th scope="row">SWE-bench Pro</th>
+<td>avg@3</td>
+<td>32.0</td>
+<td>44.6</td>
+<td>47.6</td>
+<td>+3.0</td>
+</tr>
+<tr>
+<th scope="row">MiMo Code mini¹</th>
+<td>avg@3</td>
+<td>19.5</td>
+<td>51.6</td>
+<td>59.9</td>
+<td>+8.3</td>
+</tr>
+<tr>
+<th scope="row">MiMo Cyber mini¹</th>
+<td>avg@3</td>
+<td>5.7</td>
+<td>31.3</td>
+<td>47.0</td>
+<td>+15.7</td>
+</tr>
+<tr>
+<th scope="row">AutomationBench v1.0.6</th>
+<td>avg@1</td>
+<td>5.0</td>
+<td>30.3</td>
+<td>33.1</td>
+<td>+2.8</td>
+</tr>
+<tr>
+<th scope="row">Terminal Bench 2.1</th>
+<td>avg@1</td>
+<td>27.0</td>
+<td>37.1</td>
+<td>52.8</td>
+<td>+15.7</td>
+</tr>
+<tr>
+<th scope="row">Toolathlon-Verified</th>
+<td>avg@1</td>
+<td>25.9</td>
+<td>35.2</td>
+<td>38.0</td>
+<td>+2.8</td>
+</tr>
+<tr>
+<th scope="row">OfficeQA Pro</th>
+<td>avg@1</td>
+<td>9.0</td>
+<td>19.5</td>
+<td>24.8</td>
+<td>+5.3</td>
+</tr>
+<tr>
+<th scope="row">JobBench</th>
+<td>avg@1</td>
+<td>2.6</td>
+<td>18.3</td>
+<td>25.2</td>
+<td>+6.9</td>
+</tr>
+<tr>
+<th scope="row">MiMo General mini¹</th>
+<td>avg@1</td>
+<td>28.5</td>
+<td>62.2</td>
+<td>70.6</td>
+<td>+8.4</td>
+</tr>
+<tr>
+<th scope="row">MiMo Visual Coding mini¹</th>
+<td>avg@1</td>
+<td>61.7</td>
+<td>64.0</td>
+<td>72.4</td>
+<td>+8.4</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="chartbox">
+<div class="chart-top">
+<h3>把两个阶段的收益分开看</h3>
+<div>
+<label for="metric">选择 MiMo 内部对照指标 </label>
+<select id="metric">
+<option value="pro">SWE-bench Pro</option>
+<option value="verified">SWE-bench Verified</option>
+<option value="terminal">Terminal Bench 2.1</option>
+<option value="toolathlon">Toolathlon-Verified</option>
+</select>
+</div>
+</div>
+<div id="comparison-chart" role="img" aria-label="SWE-bench Pro：Qwen 32.0，MiMo SFT 44.6，MiMo RL 47.6；横条共同范围0到100">
+<div class="bar-row baseline">
+<span>Qwen3.5-9B</span>
+<div class="bar-track">
+<div class="bar-fill" style="width:32%">
+</div>
+</div>
+<span class="bar-value">32.0</span>
+</div>
+<div class="bar-row sft">
+<span>MiMo SFT</span>
+<div class="bar-track">
+<div class="bar-fill" style="width:44.6%">
+</div>
+</div>
+<span class="bar-value">44.6</span>
+</div>
+<div class="bar-row">
+<span>MiMo RL</span>
+<div class="bar-track">
+<div class="bar-fill" style="width:47.6%">
+</div>
+</div>
+<span class="bar-value">47.6</span>
+</div>
+</div>
+<p class="gainline" id="gainline" aria-live="polite">SFT 增益 +12.6；后续 RL 增益 +3.0。横轴统一为 0–100，单位为报告分数。</p>
+</div>
+<p class="evidence">音乐不在表 6 中；§7.2 正文另报告内部音乐评分 45.7 → 52.5。<a class="cite" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Pro-RL/blob/main/MiMo_V2_6_technical_report.pdf" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</p>
+<h3>与 Ornith 并列：观察差异，不制造统一排名</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="跨报告官方成绩；Ornith Terminal 两项顺序为 Terminus-2 / Claude Code。">
+<table>
+<caption>跨报告官方成绩；Ornith Terminal 两项顺序为 Terminus-2 / Claude Code。</caption>
+<thead>
+<tr>
+<th scope="col">Benchmark</th>
+<th scope="col">MiMo SFT</th>
+<th scope="col">MiMo 领域 RL</th>
+<th scope="col">Ornith 1.0-9B</th>
+<th scope="col">Ornith 1.5-9B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">SWE-bench Verified</th>
+<td>61.1</td>
+<td>66.2</td>
+<td>69.4</td>
+<td>70.6</td>
+</tr>
+<tr>
+<th scope="row">SWE-bench Pro</th>
+<td>44.6</td>
+<td>47.6</td>
+<td>42.9</td>
+<td>47.5</td>
+</tr>
+<tr>
+<th scope="row">Terminal-Bench 2.1</th>
+<td>37.1</td>
+<td>52.8</td>
+<td>43.1 / 40.6</td>
+<td>46.2 / 47.0</td>
+</tr>
+<tr>
+<th scope="row">Toolathlon-Verified</th>
+<td>35.2</td>
+<td>38.0</td>
+<td>33.4</td>
+<td>41.2</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="note">
+<strong>为什么不能直接用 70.6 − 66.2 宣判模型优劣？</strong>
+<p>Ornith SWE 使用 OpenHands、256K 上下文、五次运行平均；MiMo SWE 为 avg@3。更直接的信号是：两份报告的原始 Qwen SWE Verified 基线分别是 53.2 与 60.0，说明测试口径尚未对齐。MiMo 的 RL 列还由多个领域模型组成。<a class="cite" href="https://huggingface.co/ornith-ai/Ornith-1.5-9B" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</p>
+</div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="跨报告比较时保留条件，不进行不透明的归一化。">
+<table>
+<caption>跨报告比较时保留条件，不进行不透明的归一化。</caption>
+<thead>
+<tr>
+<th scope="col">比较维度</th>
+<th scope="col">MiMo 9B 报告</th>
+<th scope="col">Ornith 1.5-9B 模型卡</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">成绩聚合</th>
+<td>Code/Cyber avg@3；General/Visual avg@1</td>
+<td>声明全部 Ornith 1.5 结果平均 5 次独立运行</td>
+</tr>
+<tr>
+<th scope="row">SWE harness / 预算</th>
+<td>表 6 single-harness；表 7 独立 multi-harness</td>
+<td>OpenHands；temperature 1.0 / top_p 0.95 / 256K</td>
+</tr>
+<tr>
+<th scope="row">Terminal 条件</th>
+<td>先确认 harness 与预算，再进行对齐</td>
+<td>Terminus-2：128K / 4h / 32 CPU / 48GB RAM；另有 Claude Code 2.1.126</td>
+</tr>
+<tr>
+<th scope="row">反作弊设置</th>
+<td>需按对应评测入口核验</td>
+<td>SWE 移除 git 历史并断网；NL2Repo 限制指定仓库和包</td>
+</tr>
+<tr>
+<th scope="row">同名基线也不同</th>
+<td>Qwen Toolathlon 25.9</td>
+<td>Qwen Toolathlon 29.6</td>
+</tr>
+</tbody>
+</table>
+</div>
+<details>
+<summary>展开 Ornith 其他能力指标与解释边界</summary>
+<div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="数据表">
+<table>
+<thead>
+<tr>
+<th scope="col">Benchmark</th>
+<th scope="col">Ornith 1.5-9B</th>
+<th scope="col">备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">SWE-bench Multilingual</th>
+<td>54.4</td>
+<td>OpenHands，官方自报</td>
+</tr>
+<tr>
+<th scope="row">NL2Repo</th>
+<td>32.4</td>
+<td>400K context / 48K output；不能视为普通 256K 配置</td>
+</tr>
+<tr>
+<th scope="row">GPQA Diamond</th>
+<td>86.4</td>
+<td>MiMo §7 未提供对应 9B 指标</td>
+</tr>
+<tr>
+<th scope="row">HLE 无工具 / 有工具</th>
+<td>20.2 / 30.5</td>
+<td>两种设置分开保留</td>
+</tr>
+<tr>
+<th scope="row">MCP-Atlas</th>
+<td>54.2</td>
+<td>500-task public subset</td>
+</tr>
+<tr>
+<th scope="row">BrowseComp</th>
+<td>56.4</td>
+<td>MiMo §7 未提供对应 9B 指标</td>
+</tr>
+<tr>
+<th scope="row">ClawEval</th>
+<td>66.5</td>
+<td>真实用户任务分布的 agentic code 评测</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>未报告不等于零分；不把不同能力维度强行平均为一个“总能力分”。<a class="cite" href="https://huggingface.co/ornith-ai/Ornith-1.5-9B" target="_blank" rel="noopener noreferrer">来源 ↗</a>
+</p>
+</div>
+</details>
+</section>
+<section id="openness" class="chapter" aria-labelledby="openness-title">
+<header class="chapter-head">
+<span class="chapter-no">09</span>
+<div>
+<p class="eyebrow">RESEARCH / 09</p>
+<h2 id="openness-title">横向比较：方法开放与工程开放分开看</h2>
+<p class="lead">MiMo 的优势是可审计的训练/环境组合；Ornith 的特色是更广的自改进对象。两者不能用单一“开源”标签概括。</p>
+</div>
+</header>
+<div class="table-wrap" tabindex="0" role="region" aria-label="开放程度以本次核查入口为边界；未找到不等于证明不存在。">
+<table>
+<caption>开放程度以本次核查入口为边界；未找到不等于证明不存在。</caption>
+<thead>
+<tr>
+<th scope="col">维度</th>
+<th scope="col">MiMo 9B / verl</th>
+<th scope="col">Ornith 1.5-9B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">公开模型资产</th>
+<td>公开 MiMo 蒸馏 SFT checkpoint（RL 起点）</td>
+<td>公开 Ornith 1.5 最终模型；前代 1.0 另有入口</td>
+</tr>
+<tr>
+<th scope="row">训练代码</th>
+<td>公开五类 recipe、AgentLoop 与两个子模块接口</td>
+<td>所核查官方入口未发现完整 end-to-end 训练实现</td>
+</tr>
+<tr>
+<th scope="row">训练任务 / 环境</th>
+<td>公开 RL 任务集与环境镜像入口</td>
+<td>公开方法描述生成任务；完整对应训练集未找到</td>
+</tr>
+<tr>
+<th scope="row">SFT / 前置语料</th>
+<td>报告加权 token 组成；未核实全量 SFT 语料下载</td>
+<td>CPT / mid / post 描述存在；细粒度数据配方未披露</td>
+</tr>
+<tr>
+<th scope="row">奖励</th>
+<td>脚本/环境中的测试与 grader 接口可审计</td>
+<td>task / harness / rollout 奖励概念和公式已披露</td>
+</tr>
+<tr>
+<th scope="row">已跑成绩</th>
+<td>领域 GRPO + 独立 multi-harness 官方实验</td>
+<td>1.0 → 1.5 官方多任务评测</td>
+</tr>
+<tr>
+<th scope="row">硬件 / 训练配置</th>
+<td>有参考 32/64 GPU 拓扑；不是最低门槛</td>
+<td>未找到 9B 完整训练硬件与预算</td>
+</tr>
+<tr>
+<th scope="row">可直接宣称完整复现？</th>
+<td>还需环境、grader、评测资产与实际运行</td>
+<td>缺少数据/实现时，只能进行方法再实现</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="grid-two">
+<article>
+<h3>复现有四个层级</h3>
+<ol>
+<li>
+<strong>资产可获取：</strong>代码、模型、数据能下载。</li>
+<li>
+<strong>闭环能运行：</strong>任务执行、评分和更新均通过。</li>
+<li>
+<strong>配置可对齐：</strong>版本、预算、harness 与作者一致。</li>
+<li>
+<strong>结果可重复：</strong>多次评测达到相近分布。</li>
+</ol>
+</article>
+<article>
+<h3>本次工作完成到哪里？</h3>
+<p>完成官方资料与公开源码审计、可读流程和教程整合。没有运行训练，也没有验证内部 benchmark 或复现分数。</p>
+<p>公开代码是复现的基础，但最终效果仍需以实际运行记录与评测条件证明。</p>
+</article>
+</div>
+<div class="note">
+<strong>已核实的开放缺口会影响“完整复现”</strong>
+<p>截至核查，官方 9B 模型页为一套 SFT 权重，官方模型列表未找到各领域 9B RL 成品权重。General 公共数据布局也不等同脚本描述的完整 open_source_env bundle：未见文档所提的构建/retag 辅助脚本及 eval_300_open.retagged.parquet。教程因此明确保留数据适配与评测集准备关卡，不能宣称下载后直接复现论文全部分数。</p>
+</div>
+</section>
+<section id="tutorial" class="chapter" aria-labelledby="tutorial-title">
+<header class="chapter-head">
+<span class="chapter-no">10</span>
+<div>
+<p class="eyebrow">RESEARCH / 10</p>
+<h2 id="tutorial-title">MiMo RL 复现教程：从准备到验收</h2>
+<p class="lead">按关卡推进。命令来自固定源码或明确标注的检查示例；带占位路径的配置需要替换，本报告没有执行训练。</p>
+</div>
+</header>
+<div class="note">
+<strong>先确认复现目标与执行位置</strong>
+<p>本教程面向已有 Linux GPU / Ray / Kubernetes 基础设施的训练环境，不是在当前 Mac 上直接运行。目标分为 A「跑通公开 RL 流程」和 B「复现报告分数」；B 还要求相同评测资产与协议。以下未执行的命令均为配置模板，<code>/ABS/...</code> 需替换为所有相关节点可见的真实路径。</p>
+</div>
+<div class="steps">
+<div class="step">
+<div>
+<h3>固定版本，建立实验工作区</h3>
+<p>先用经过审计的 MiMo 提交；不要在首轮复现中同时追踪最新 verl、SGLang 和 Transformers。</p>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制源码获取命令">复制</button>
+<pre>
+<code># 在专用 Linux 训练工作区执行；本报告未执行这些下载/训练命令。
+git clone https://github.com/XiaomiMiMo/verl.git mimo-verl
+cd mimo-verl
+git checkout a2ad9f6160b03ff2d47e59832bfb6b289f37c917
+git submodule update --init third_party/mimoagent-osr third_party/uni_agent
+git rev-parse HEAD
+git submodule status</code>
+</pre>
+</div>
+<p class="detail">若以后改用 xDAN fork，保留原始提交与子模块 SHA。记录模型/数据 revision、容器 image digest、硬件和完整配置；不能只记“用了 main”。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>先锁定训练容器，再安装 recipe</h3>
+<p>Megatron、SGLang、PyTorch/CUDA 和模型架构支持必须兼容。当前公开安装资料存在版本漂移：通用安装脚本中 SGLang 为 0.5.2，Docker README 的版本已到 0.5.12；requirements 对 Transformers 的范围为 <code>&gt;=5.5.3,!=5.6.0,&lt;5.11</code>。</p>
+<p class="detail">
+<strong>这不是一组本报告验证通过的依赖锁。</strong>不要把通用安装脚本当作 MiMo 的完整已验证镜像。先读脚本、在可丢弃容器中构建和验证模型加载，再固定 image digest。安装脚本可能改变全局包，只在专用训练容器中执行。</p>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制verl本体安装命令">复制</button>
+<pre>
+<code># 前提：训练容器中的依赖已逐项安装并匹配。此命令不安装缺少的依赖。
+python -m pip install --no-deps -e .
+python -m pip freeze</code>
+</pre>
+</div>
+<p class="detail">mimoagent 要求 Python 3.12；仅满足 verl 的 Python ≥3.10 不够。还需检查 TransferQueue==0.1.8、megatron.core / megatron.bridge、fla、sglang、mimoagent 等模块。任务镜像 <code>xiaomimimo/mimo-v2.6-rl-oss</code> 不应未经验证当作训练基础镜像。</p>
+<p class="evidence">
+<a class="cite" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/install_vllm_sglang_mcore.sh" target="_blank" rel="noopener noreferrer">通用安装脚本 ↗</a>
+<a class="cite" href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/docker/README.md" target="_blank" rel="noopener noreferrer">Docker 说明 ↗</a>
+</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>准备 GPU、Ray、K8s 与共享文件</h3>
+<p>训练参数更新使用 GPU；任务 Pod 与工具执行还消耗 CPU、内存、网络和存储。所有 worker 要能访问模型、数据、所需镜像与输出路径。</p>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制基础设施检查命令">复制</button>
+<pre>
+<code># 在已配置训练容器 / 已连接集群中做只读检查。
+nvidia-smi
+ray status
+kubectl config current-context
+kubectl auth can-i create pods -n YOUR_TASK_NAMESPACE
+kubectl get nodes</code>
+</pre>
+</div>
+<p class="detail">这些检查不创建集群，也不证明 Pod 内网络、卷挂载和 judge 连通。还要按选定 recipe 的 namespace、服务账号、镜像拉取凭证与 Pod 模板验收；General 是双容器 Pod。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>获取模型与数据，验证每个任务的镜像映射</h3>
+<p>模型起点使用 <a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B" target="_blank" rel="noopener noreferrer">MiMo-V2.6-Distill-Qwen-9B</a>。从 <a href="https://huggingface.co/datasets/XiaomiMiMo/MiMo-V2.6-RL-oss/tree/main" target="_blank" rel="noopener noreferrer">数据仓库</a>获取所选领域任务、环境和 <code>image-mapping.jsonl</code>，保留 revision。</p>
+<p class="detail">逐条把任务元数据中的旧镜像名转换到公开 Docker Hub 镜像；不得仅拼接前缀。映射缺失要显式失败，避免拉到其他镜像。先对一个任务验证工作目录、测试入口和 grader，再批量处理。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="固定资产版本">
+<table>
+<thead>
+<tr>
+<th scope="col">资产</th>
+<th scope="col">本次核查 revision</th>
+<th scope="col">准备要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">MiMo SFT 模型</th>
+<td>
+<code>2367e865d009c13ac81713a2878291d33ab28177</code>
+</td>
+<td>完整四分片权重、config、tokenizer 与 chat template；各节点同路径可见。</td>
+</tr>
+<tr>
+<th scope="row">RL 数据</th>
+<td>
+<code>639865fd3374018d6cb29b9fb82dd531406fcf5f</code>
+</td>
+<td>所选 parquet、镜像映射、General 的 envs 树；保留未经修改的原件。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="detail">Code <code>docker_image</code> 接收完整映射地址；General 的 <code>DOCKER_REGISTRY</code> 还会加前缀且校验来源，要避免重复前缀。General 的 <code>env_task_dir</code> 必须在 <code>GA_TASK_ROOT</code> 下真实存在。</p>
+<details>
+<summary>需要自建的数据准备适配器应通过哪些检查？</summary>
+<div>
+<ol>
+<li>验证 prompt / agent_name / extra_info 等 schema，解析 instance_json，保留 instance ID。</li>
+<li>按 dataset_image → dockerhub_image 映射镜像，记录无法解析的任务；不要全局字符串替换。</li>
+<li>检查任务路径、工作目录、验证器信息，输出缺失清单；不静默丢弃。</li>
+<li>生成无重叠 train / holdout、转换后 parquet 及 revision / hash manifest。</li>
+<li>选一条任务完成环境、工具与评分验收，再扩大范围。</li>
+</ol>
+<p>上述是 xDAN fork 的建议首期工作，不是已存在的官方 prepare_data 命令。</p>
+</div>
+</details>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>建立真实 train / validation 切分</h3>
+<p>同一个任务及其近重复不能同时进入训练和验证。按 instance ID / 仓库来源检查重叠；保留 split manifest。自建验证集的分数只能用于自己的实验，不能改名为论文内部 benchmark。</p>
+<div class="note">
+<strong>General 的目录适配是必做步骤</strong>
+<p>公开包的 <code>general/train.parquet</code> 与 <code>general/envs/</code> 并不是脚本默认期待的完整目录。未见 <code>eval_300_open.retagged.parquet</code>，也未见文档描述的部分构建/retag 脚本。需要自己实现并审查转换，或者取得作者完整 bundle；不能拿训练集复制为验证集来“跑通”。</p>
+</div>
+<p class="detail">若目标是精确复现论文内部评测，而评测集无法取得，应明确将该验收项标为不可验证；仍可运行公开基准。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>填写领域 env：用 wrapper 启动，不绕过它</h3>
+<p>每个入口旁的 env.example 是变量契约。复制到训练工作区的本地配置，填写真实路径和资源；配置中如有凭证，不提交到 Git。</p>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制配置准备命令">复制</button>
+<pre>
+<code># Code 路线；复制后先编辑，不能直接运行示例占位路径。
+cp scripts/code/env.example /ABS/RUN/code.env
+
+# General 路线（另一次实验）。
+cp scripts/general/general.env.example /ABS/RUN/general.env</code>
+</pre>
+</div>
+<p class="detail">README 推荐模型不是硬编码默认模型；例如 General env 示例使用 Qwen 模型名。做 MiMo 复现时要显式改为已下载 MiMo SFT checkpoint，并核对 tokenizer / chat template。</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="必须填写的变量">
+<table>
+<thead>
+<tr>
+<th scope="col">路线</th>
+<th scope="col">关键变量</th>
+<th scope="col">校验点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Code</th>
+<td>
+<code>MODEL_PATH</code>、<code>TRAIN_DATA</code>、<code>VAL_DATA</code>、<code>KUBECONFIG</code>、<code>TRAIN_NNODES</code>、可选 <code>RUN_DIR</code>
+</td>
+<td>MODEL_PATH 使用共享本地目录；precheck 按路径存在检查。资源约束配套调整。</td>
+</tr>
+<tr>
+<th scope="row">General</th>
+<td>
+<code>GA_TASK_ROOT</code>、<code>MODEL_PATH</code>、<code>KUBECONFIG</code>、<code>DOCKER_REGISTRY</code>、<code>GA_JUDGE_URL</code>、<code>GA_JUDGE_KEY</code>、<code>GA_JUDGE_MODEL</code>
+</td>
+<td>judge 可达且响应格式正确；环境目录和镜像来源对齐。</td>
+</tr>
+<tr>
+<th scope="row">General 额外覆盖</th>
+<td>
+<code>TRAIN_DATA</code>、<code>VAL_DATA</code>
+</td>
+<td>显式 export 为真实准备的文件；不能依赖公开包中不存在的默认文件名。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制General数据路径配置">复制</button>
+<pre>
+<code># 加入你已编辑的 General 本地 env 文件，替换成转换后的真实文件。
+export MODEL_PATH=/ABS/SHARED/models/mimo-distill-9b
+export TRAIN_DATA=/ABS/SHARED/data/general/train.converted.parquet
+export VAL_DATA=/ABS/SHARED/data/general/holdout.converted.parquet</code>
+</pre>
+</div>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>执行 preflight，检查 resolved config</h3>
+<p>配置准备好后，通过对应 wrapper 进入检查。Ray 集群需事先启动；默认 RAY_INIT_ADDRESS=auto 不负责创建它。Code preflight 会连接 Ray、在 GPU worker 上 probe 并写运行记录；General 主要校验数据并解析 Hydra，检查强度不同。通过仍不等于任务或 judge 执行成功。</p>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制Code预检查命令">复制</button>
+<pre>
+<code># 在仓库根目录、已配置训练环境中执行。
+set -a
+. /ABS/RUN/code.env
+set +a
+PREFLIGHT_ONLY=1 bash scripts/code/train.sh</code>
+</pre>
+</div>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制General预检查命令">复制</button>
+<pre>
+<code># General 是独立实验；不要和 Code 共用残留环境变量。
+source /ABS/RUN/general.env
+PREFLIGHT_ONLY=1 bash scripts/general/general.sh</code>
+</pre>
+</div>
+<p class="detail">检查最终 MODEL_PATH、数据/验证文件、batch、组大小、节点/GPU 数、TP/PP/CP、最大窗口、日志与输出路径。Code 基础 YAML 与 wrapper 值不同，应记录最终解析结果而不是任选一份。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>先跑单任务与奖励检查，再做小预算训练</h3>
+<p>使用已知可成功和应失败的任务/轨迹检查评分器。确认超时、Pod 故障、judge 不可达与任务失败被分别记录。随后在满足组采样与并行约束的配置下减少任务规模或训练步数。</p>
+<p class="detail">不要把 <code>NNODES=1</code> 单独修改后称为支持单机；TP/PP/CP、batch、组大小、显存与上下文需要一起验证。本文不编造已验证的单卡/单机最小配置。</p>
+<div class="note teal">
+<strong>短程训练的最低验收证据</strong>
+<p>拿到完整 rollout、非故障性的奖励、实际优化 step、可重载 checkpoint，以及在固定验证集上的结果。只看到进程启动、GPU 占用或 loss 输出不算闭环通过。</p>
+</div>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>正式训练与其他领域入口</h3>
+<p>单任务和短程运行验收后，用冻结的配置开展正式训练。每个领域独立运行；这些命令不是一个依次执行的五域混合训练 pipeline。</p>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制Code训练命令">复制</button>
+<pre>
+<code># 仅在以上关卡通过、配置与资源确认后执行。
+set -a
+. /ABS/RUN/code.env
+set +a
+bash scripts/code/train.sh</code>
+</pre>
+</div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="五领域训练入口">
+<table>
+<thead>
+<tr>
+<th scope="col">领域</th>
+<th scope="col">配置契约</th>
+<th scope="col">仓库根目录执行入口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Code</th>
+<td>scripts/code/env.example</td>
+<td>
+<code>bash scripts/code/train.sh</code>
+</td>
+</tr>
+<tr>
+<th scope="row">Cyber</th>
+<td>scripts/arvo/arvo.env.example</td>
+<td>
+<code>bash scripts/arvo/arvo.sh</code>
+</td>
+</tr>
+<tr>
+<th scope="row">General</th>
+<td>scripts/general/general.env.example</td>
+<td>
+<code>bash scripts/general/general.sh</code>
+</td>
+</tr>
+<tr>
+<th scope="row">Visual</th>
+<td>scripts/design/webdev.env.example</td>
+<td>
+<code>bash scripts/design/webdev.sh</code>
+</td>
+</tr>
+<tr>
+<th scope="row">Music</th>
+<td>scripts/design/music.env.example</td>
+<td>
+<code>bash scripts/design/music.sh</code>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="detail">Visual 先验证共享截图、group grader 与视觉 judge；Music 先验证每个 worker 的 abc2midi。Cyber 任务只在配套隔离环境内运行。其他路线的 preflight 能力需看各自入口，不能假设全部支持同一个变量。</p>
+</div>
+</div>
+<div class="step">
+<div>
+<h3>评测、恢复与复现报告</h3>
+<p>固定任务集、模型版本、harness、采样参数、工具、网络限制、预算、超时和重复次数。保存训练中和训练后的 checkpoint，并按实际后端格式验证恢复；不要假设训练输出天然就是 Hugging Face 可服务权重。</p>
+<p class="detail">MiMo 表 6 Code 为 single-harness，而当前 Code wrapper 默认含 multi-harness 配置。复现表 6 与表 7 必须分别对齐目标，不能拿一套运行任意对标两张表。内部 MiMo mini 评测资产未核实可获取时，不承诺精确复现。</p>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制General评估入口">复制</button>
+<pre>
+<code># General 独立评估；先在env中指定可加载的待评模型和真实holdout。
+source /ABS/RUN/general.env
+GENERAL_MODE=eval bash scripts/general/general.sh</code>
+</pre>
+</div>
+<p class="detail">eval 会开启 val_only / val_before_train；VAL_KWARGS_N 默认 4。若要对齐表 6 的 avg@1，必须显式核对采样与聚合，不能直接把默认验证日志当论文分数。其他公开 benchmark 需使用其正式评测入口；本报告未验证 Megatron checkpoint 到可服务格式的导出链，因此把导出/恢复列为实际验收关卡。</p>
+<p class="detail">Code 默认输出根为 <code>outputs/four-whitebox/&lt;UTC-run-id&gt;</code>，可固定 RUN_DIR，保存 resolved_config.yaml、manifest、checkpoint、rollouts、validation 与 trajectories。将这些与外部 grader / Pod 日志关联到同一 run ID。</p>
+</div>
+</div>
+</div>
+<h3>故障定位：先排查环境与奖励，再判断模型</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="常见复现故障">
+<table>
+<thead>
+<tr>
+<th scope="col">现象</th>
+<th scope="col">先检查</th>
+<th scope="col">保留的证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">所有 reward 为 0</th>
+<td>judge 连通/解析、abc2midi、共享路径、任务初始化；再检查模型行为。</td>
+<td>原始 grader 返回、工具日志、样本终止原因。</td>
+</tr>
+<tr>
+<th scope="row">Pod 无法启动</th>
+<td>image mapping、拉取凭证、namespace、配额和挂载。</td>
+<td>Pod events、镜像 digest、失败任务 ID。</td>
+</tr>
+<tr>
+<th scope="row">OOM / 极慢</th>
+<td>实际轨迹长度、rollout 并发、并行拓扑和显存分配。</td>
+<td>峰值显存、长度分布、队列等待、配置差异。</td>
+</tr>
+<tr>
+<th scope="row">reward 高但评测不升</th>
+<td>训练/验证泄漏、grader 漏洞、预算或 harness 不一致。</td>
+<td>成功轨迹人工抽查、独立 verifier、固定集对照。</td>
+</tr>
+<tr>
+<th scope="row">运行与 YAML 不一致</th>
+<td>wrapper 覆盖与残留环境变量。</td>
+<td>resolved Hydra config、启动日志、环境清单。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="evidence">准确源码与变量清单见配套 <a href="mimo-research.md">MiMo 审计记录</a>。没有 GPU、集群与必要外部服务时，教程在基础设施关卡停下，不将条件省略为一条“一键运行”命令。</p>
+</section>
+<section id="decision" class="chapter" aria-labelledby="decision-title">
+<header class="chapter-head">
+<span class="chapter-no">11</span>
+<div>
+<p class="eyebrow">RESEARCH / 11</p>
+<h2 id="decision-title">选择与实施路线：先证明闭环，再扩规模</h2>
+<p class="lead">以下是工程建议，不是官方已验证的缩配方案；选择取决于你要交付模型、环境还是训练能力。</p>
+</div>
+</header>
+<div class="grid-three">
+<article class="decision">
+<p class="small-label">目标 A / 马上使用 Agent 模型</p>
+<strong>先做同条件推理评测</strong>
+<p>比较公开的 MiMo SFT 与 Ornith 1.5 权重。保持工具、任务、预算和超时一致，记录成功率、延迟、token 与工具错误。不能把未公开的 MiMo 领域 RL 权重当成可直接下载的候选。</p>
+</article>
+<article class="decision">
+<p class="small-label">目标 B / 建立 RL 训练能力</p>
+<strong>从 MiMo 单一领域切入</strong>
+<p>先验证一个任务镜像和 grader，再固定小任务集建立基线；保留完整轨迹。环境和奖励正确后，才开展短程参数更新与资源测量。</p>
+</article>
+<article class="decision">
+<p class="small-label">目标 C / 研究自改进方法</p>
+<strong>把 Ornith 思路作为实验变量</strong>
+<p>在可运行的闭环上逐步加入任务生成或 scaffold 优化，用消融实验验证。由于缺少完整原始数据配方，这属于方法再实现，不能直接宣称复现 Ornith。</p>
+</article>
+</div>
+<h3>建议里程碑与退出条件</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="数据表">
+<table>
+<thead>
+<tr>
+<th scope="col">阶段</th>
+<th scope="col">交付物</th>
+<th scope="col">通过条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">M0 · 固定证据</th>
+<td>commit、模型 revision、数据 revision、配置与依赖清单</td>
+<td>每个结果可定位到同一组输入资产</td>
+</tr>
+<tr>
+<th scope="row">M1 · 环境与基线</th>
+<td>单任务轨迹 + grader 日志；固定集 SFT 结果</td>
+<td>成功/失败任务可重复评分；基础设施失败单独记账</td>
+</tr>
+<tr>
+<th scope="row">M2 · RL smoke test</th>
+<td>少量更新、checkpoint、独立评测记录</td>
+<td>确有梯度/参数更新；轨迹可读；模型可恢复</td>
+</tr>
+<tr>
+<th scope="row">M3 · 参考规模训练</th>
+<td>固定预算运行、checkpoint 曲线、资源账单</td>
+<td>无静默 grader 故障；训练与评测条件锁定</td>
+</tr>
+<tr>
+<th scope="row">M4 · 报告级复现</th>
+<td>同设置公开评测与偏差分析</td>
+<td>给出多次运行波动；不以单次分数等同论文结果</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="band">
+<h3>投资判断：先验证“奖励是否可信”</h3>
+<p>模型不提升可能来自策略，也可能来自镜像、judge、共享存储或工具协议。先用已知成功/失败的轨迹检验 verifier，通常比立即加 GPU 更能减少无效实验。</p>
+</div>
+<h3>正式训练前的核对清单</h3>
+<p class="compact muted">下列复选框只用于本次阅读，不持久保存，也不代表已自动执行检查。</p>
+<ul class="checklist">
+<li>
+<label>
+<input type="checkbox">
+<span>已锁定源码、模型、数据与容器镜像版本。</span>
+</label>
+</li>
+<li>
+<label>
+<input type="checkbox">
+<span>至少一个真实任务可完成初始化、工具执行和 grader 回传。</span>
+</label>
+</li>
+<li>
+<label>
+<input type="checkbox">
+<span>judge 不可用、超时、工具错误与任务失败有不同记录。</span>
+</label>
+</li>
+<li>
+<label>
+<input type="checkbox">
+<span>已建立同 harness / 同预算的 SFT 基线。</span>
+</label>
+</li>
+<li>
+<label>
+<input type="checkbox">
+<span>已确认训练 token mask、最大上下文和终止行为。</span>
+</label>
+</li>
+<li>
+<label>
+<input type="checkbox">
+<span>已验证 checkpoint 保存、重载与续训入口。</span>
+</label>
+</li>
+<li>
+<label>
+<input type="checkbox">
+<span>已为公开评测和内部评测分别定义可达验收目标。</span>
+</label>
+</li>
+</ul>
+</section>
+<div class="note teal"><strong>项目已建立</strong><p><a href="https://github.com/cryptoSUN2049/xDAN-Train-Performance-Verl" target="_blank" rel="noopener noreferrer">xDAN-Train-Performance-Verl ↗</a> 已 fork 自 XiaomiMiMo/verl；本页面随项目初始化归档。训练代码基线、P0 计划和 upstream manifest 位于同一文档目录。</p></div>
+<section id="fork" class="chapter" aria-labelledby="fork-title">
+<header class="chapter-head">
+<span class="chapter-no">12</span>
+<div>
+<p class="eyebrow">RESEARCH / 12</p>
+<h2 id="fork-title">长期建设决策：xDAN-Train-Performance-Verl</h2>
+<p class="lead">从小米公开方案起步，建设训练、性能与复现证据的平台；仓库已于 2026-09-28 建立；以下是尚待实施与验收的平台架构。</p>
+</div>
+</header>
+<div class="band">
+<p class="small-label" style="color:#efb28d">ARCHITECTURE DECISION / 建议采纳</p>
+<h3>建议 fork XiaomiMiMo/verl，建设 xDAN-Train-Performance-Verl。</h3>
+<p>长期建设的目标是：把模型、任务、环境、奖励、轨迹、训练和评测组织成可追溯的实验系统。小米代码提供可审计起点；xDAN 的长期资产应沉淀在可复现实验与性能证据上，而不只是仓库改名。</p>
+</div>
+<div class="grid-two">
+<article>
+<h3>为什么现在值得 fork？</h3>
+<ul>
+<li>已确定持续训练平台的目标，需要稳定保存上游修复、本地适配和实验版本。</li>
+<li>存在具体工程工作：公开数据布局适配、镜像映射、依赖锁定、预检查与评测规范。</li>
+<li>将内部复现经验留在有测试、有版本记录的配置和代码中，比复制零散启动脚本更可维护。</li>
+</ul>
+</article>
+<article>
+<h3>fork 的边界应保持克制</h3>
+<ul>
+<li>第一阶段尽量不改 <code>verl/</code> 核心；先扩展配置、适配器和运行记录。</li>
+<li>先锁定小米提交跑通一条路线，再扩到多领域，避免同时改训练、奖励和任务生成。</li>
+<li>Ornith 当前主要作为方法参考与评测候选；fork 文档仓库不能替代它未开放的训练实现。</li>
+</ul>
+</article>
+</div>
+<h3>建议分层：核心上游化，能力扩展本地化</h3>
+<div class="pipeline">
+<div>
+<small>LAYER 1</small>
+<b>上游训练引擎</b>
+<span>verl / Megatron / SGLang；维护最小核心补丁，优先向适当上游回馈通用修复。</span>
+</div>
+<div>
+<small>LAYER 2</small>
+<b>环境与数据适配</b>
+<span>任务 schema、镜像映射、harness、grader、基础设施预检。</span>
+</div>
+<div>
+<small>LAYER 3</small>
+<b>可追溯实验</b>
+<span>冻结配置、revision、容器 digest、随机种子、checkpoint 与轨迹。</span>
+</div>
+<div>
+<small>LAYER 4</small>
+<b>性能与业务评估</b>
+<span>能力、泛化、吞吐、成本、稳定性与奖励有效性，形成决策依据。</span>
+</div>
+</div>
+<div class="codebox">
+<button type="button" class="copy" aria-label="复制目录建议">复制</button>
+<pre>
+<code>xDAN-Train-Performance-Verl/
+├── verl/                       # 保留上游主体；核心改动需要明确理由
+├── recipes/                    # 保留 MiMo recipes 与可追溯配置
+├── third_party/                # 起步仍使用原子模块的固定 SHA
+├── xdan/                       # 建议新增：适配层，稳定后再抽象
+│   ├── data/                   # schema / split / image mapping
+│   ├── environments/           # Pod、工具与 grader 的统一检查
+│   ├── experiments/            # resolved config 与 run manifest
+│   └── evaluation/             # 同条件评测、回归与成本记录
+├── configs/xdan/               # 经过验证的模型 × 领域配置
+├── tests/xdan/                 # 数据契约、奖励、运行恢复等关键测试
+├── docs/&lt;worktree-name&gt;/        # 本轮设计与交付物
+└── tasks/&lt;worktree-name&gt;/       # 计划、交接、真实踩坑
+
+# checkpoint、原始轨迹、数据和密钥不进入 Git；存于对象/共享存储。</code>
+</pre>
+</div>
+<p class="compact muted">以上是建议目录；仓库已建立，平台能力尚未实现。每个模块应由真实重复需求驱动；最初可只有一个数据转换器、一份实验配置和一套验收脚本。</p>
+<h3>上游维护策略：两条来源，一条明确的集成链</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="仓库来源与同步策略">
+<table>
+<thead>
+<tr>
+<th scope="col">对象</th>
+<th scope="col">建议</th>
+<th scope="col">理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">origin</th>
+<td>xDAN-Train-Performance-Verl</td>
+<td>xDAN 已验证的集成主线与实验资产。</td>
+</tr>
+<tr>
+<th scope="row">mimo</th>
+<td>XiaomiMiMo/verl，跟踪 mimo-oss</td>
+<td>直接上游；先锁定本报告审计 SHA。</td>
+</tr>
+<tr>
+<th scope="row">verl-upstream</th>
+<td>verl-project/verl，只读跟踪发布与差异</td>
+<td>引擎来源；不把最新 main 未经验证直接合入。</td>
+</tr>
+<tr>
+<th scope="row">同步方式</th>
+<td>定期检查 → 隔离升级分支 → 差异审查 → smoke + regression → 合并</td>
+<td>升级必须保留上一组已验证环境和可回退版本。</td>
+</tr>
+<tr>
+<th scope="row">子模块</th>
+<td>初期保留 mimoagent / uni-agent 的上游地址与锁定 SHA</td>
+<td>只有真实修改需求时再 fork；避免一开始维护三套长期分叉。</td>
+</tr>
+<tr>
+<th scope="row">许可与来源</th>
+<td>保留 LICENSE / NOTICE / attribution，并为新增组件记录来源</td>
+<td>让代码、模型、数据及容器各自的来源可追踪；它们不是同一个资产。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<details>
+<summary>建仓与后续维护顺序（GitHub fork 已建立）</summary>
+<div>
+<ol>
+<li>确认仓库归属组织、可见性和协作者，再在 GitHub 创建 fork 并命名为 <code>xDAN-Train-Performance-Verl</code>。</li>
+<li>保留 fork 历史和小米代码来源；创建 xDAN 集成主线，标记初始基线对应的原始 SHA。</li>
+<li>配置 <code>origin / mimo / verl-upstream</code> 三个 remote；子模块继续使用固定版本。</li>
+<li>提交第一份 ADR：支持模型/领域、基线硬件、数据版本、grader 版本及非目标。</li>
+<li>首先建立环境锁定和单任务验收，不以“平台 UI 已完成”作为项目成功。</li>
+</ol>
+</div>
+</details>
+<h3>长期里程碑：每一阶段都需要可证据化的退出条件</h3>
+<div class="table-wrap" tabindex="0" role="region" aria-label="长期建设路线">
+<table>
+<thead>
+<tr>
+<th scope="col">阶段</th>
+<th scope="col">核心工作</th>
+<th scope="col">验收产物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">P0 / 复现基线</th>
+<td>版本锁定、单领域环境、数据与镜像适配、SFT 基线。</td>
+<td>可重放任务轨迹、resolved config、独立 grader 检查；确认公开资产缺口。</td>
+</tr>
+<tr>
+<th scope="row">P1 / 训练闭环</th>
+<td>GRPO 短程训练、checkpoint 恢复、错误分类、固定集评估。</td>
+<td>真实参数更新与恢复证据；能力、成本、失败率随 step 的记录。</td>
+</tr>
+<tr>
+<th scope="row">P2 / 多模型多领域</th>
+<td>扩展经过验证的 recipe；统一协议与评测预算。</td>
+<td>可比较的实验矩阵；不会把各领域最好成绩拼成不存在的单模型。</td>
+</tr>
+<tr>
+<th scope="row">P3 / 性能工程</th>
+<td>吞吐、显存、环境并发、policy staleness 与成本优化。</td>
+<td>每项优化有同配置对照；单位成功任务成本下降且能力不回退。</td>
+</tr>
+<tr>
+<th scope="row">P4 / 自改进研究</th>
+<td>逐步加入任务生成 / scaffold 优化；保持独立 verifier。</td>
+<td>固定任务基线与消融，评测隔离及反作弊结果；标明是方法再实现。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3>Performance 的定义不能只有 tokens/s</h3>
+<div class="grid-two">
+<article>
+<h4>能力与泛化</h4>
+<p>固定公开/业务集成功率、跨 harness 表现、未见任务、同预算多次评测波动。</p>
+<h4>训练与基础设施</h4>
+<p>有效训练 token 吞吐、峰值显存、rollout 延迟、队列等待、环境启动失败和超时率。</p>
+</article>
+<article>
+<h4>成本与收益</h4>
+<p>GPU-hours、CPU/存储、judge API 费用；每个成功任务的推理成本、达到既定能力增益的训练成本。</p>
+<h4>奖励与可追溯性</h4>
+<p>judge 可用率、奖励分布、过滤率、hacking 样本、配置/数据/模型版本覆盖率。</p>
+</article>
+</div>
+<div class="note teal">
+<strong>当前建议：同意项目方向，先投资可复现基线</strong>
+<p>最优起点是“一个领域、一组固定任务、一套可信 grader、一份可恢复训练记录”。只有当这些稳定后，才建设跨实验调度或可视化平台。需要进一步确定的是硬件预算、优先业务领域和仓库归属，它们不影响本报告对 fork 方向的判断。</p>
+</div>
+</section>
+<section id="sources" class="chapter" aria-labelledby="sources-title">
+<header class="chapter-head">
+<span class="chapter-no">13</span>
+<div>
+<p class="eyebrow">RESEARCH / 13</p>
+<h2 id="sources-title">证据索引与阅读入口</h2>
+<p class="lead">用原始资料验证关键结论；优先阅读 MiMo §7 与 Ornith 1.5 方法说明，再查看对应脚本。</p>
+</div>
+</header>
+<ol class="source-list">
+<li id="source-mimo-paper">
+<div>
+<a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Pro-RL/blob/main/MiMo_V2_6_technical_report.pdf" target="_blank" rel="noopener noreferrer">MiMo-V2.6 技术报告 · §7 / 表 4–7 ↗</a>
+<p>9B SFT 数据组成、领域 GRPO 与 multi-harness 实验；与旗舰大模型章节分开解读。</p>
+</div>
+</li>
+<li id="source-mimo-model">
+<div>
+<a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B" target="_blank" rel="noopener noreferrer">MiMo-V2.6-Distill-Qwen-9B 模型卡 ↗</a>
+<p>已发布的是 SFT 起点；模型卡评测为 SFT 成绩。</p>
+</div>
+</li>
+<li id="source-mimo-data">
+<div>
+<a href="https://huggingface.co/datasets/XiaomiMiMo/MiMo-V2.6-RL-oss" target="_blank" rel="noopener noreferrer">MiMo-V2.6-RL-oss 数据与环境 ↗</a>
+<p>五领域 RL 任务集，不能混同为 77.4B tokens 的 SFT 数据。</p>
+</div>
+</li>
+<li id="source-mimo-code">
+<div>
+<a href="https://github.com/XiaomiMiMo/verl/tree/a2ad9f6160b03ff2d47e59832bfb6b289f37c917" target="_blank" rel="noopener noreferrer">XiaomiMiMo/verl · 固定审计提交 ↗</a>
+<p>脚本、recipe、AgentLoop 与模型/环境配置。</p>
+</div>
+</li>
+<li id="source-code-launch">
+<div>
+<a href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/code/train.sh" target="_blank" rel="noopener noreferrer">Code · train.sh / wrapper ↗</a>
+<p>生效参数以 wrapper 覆盖后的 resolved config 为准。</p>
+</div>
+</li>
+<li id="source-general-env">
+<div>
+<a href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/general/general.env.example" target="_blank" rel="noopener noreferrer">General · 环境变量契约 ↗</a>
+<p>任务文件、镜像仓库、双容器 Pod、judge 与前置条件。</p>
+</div>
+</li>
+<li id="source-visual-env">
+<div>
+<a href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/design/webdev.env.example" target="_blank" rel="noopener noreferrer">Visual · webdev.env.example ↗</a>
+<p>训练相对排名、评估绝对分数；共享存储与评分服务。</p>
+</div>
+</li>
+<li id="source-music-env">
+<div>
+<a href="https://github.com/XiaomiMiMo/verl/blob/a2ad9f6160b03ff2d47e59832bfb6b289f37c917/scripts/design/music.env.example" target="_blank" rel="noopener noreferrer">Music · music.env.example ↗</a>
+<p>abc2midi、worker probe 与长响应配置。</p>
+</div>
+</li>
+<li id="source-ornith-model">
+<div>
+<a href="https://huggingface.co/ornith-ai/Ornith-1.5-9B" target="_blank" rel="noopener noreferrer">Ornith-1.5-9B 模型卡 ↗</a>
+<p>发布模型、官方评测数字、harness 与推理设置。</p>
+</div>
+</li>
+<li id="source-ornith-15">
+<div>
+<a href="https://ornith.ai/ornith_1_5.html" target="_blank" rel="noopener noreferrer">Ornith 1.5 · 官方方法说明 ↗</a>
+<p>任务生成、scaffold 构造与解题 rollout 的联合自改进。</p>
+</div>
+</li>
+<li id="source-ornith-10">
+<div>
+<a href="https://ornith.ai/ornith_1_0.html" target="_blank" rel="noopener noreferrer">Ornith 1.0 · Self-Scaffolding 官方说明 ↗</a>
+<p>前代 self-scaffolding、异步训练与反作弊设计；家族层方法。</p>
+</div>
+</li>
+<li id="source-ornith-repo">
+<div>
+<a href="https://github.com/Ornith-AI/Ornith-1" target="_blank" rel="noopener noreferrer">Ornith-AI / Ornith-1 官方仓库 ↗</a>
+<p>开放资产范围核查；不能将介绍仓库等同训练实现。</p>
+</div>
+</li>
+<li id="source-ornith-datasets">
+<div>
+<a href="https://huggingface.co/ornith-ai" target="_blank" rel="noopener noreferrer">Ornith 官方 HF 数据集入口 ↗</a>
+<p>公开数据资产核查范围，不据此断言全网不存在其他训练数据。</p>
+</div>
+</li>
+<li id="source-upstream-install">
+<div>
+<a href="https://github.com/verl-project/verl/blob/main/docs/start/install.rst" target="_blank" rel="noopener noreferrer">verl 上游安装文档 ↗</a>
+<p>经 Context7 检索；仅作一般安装背景，MiMo 固定提交优先。</p>
+</div>
+</li>
+</ol>
+<div class="note teal">
+<strong>研究范围与时间</strong>
+<p>核查日期：2026-09-28。MiMo 源码固定为 a2ad9f6160b03ff2d47e59832bfb6b289f37c917；模型卡、数据页与博客为当日公开页面。本文由官方资料与源码审计整理，不代表作者背书，不含实际 GPU 训练验证。</p>
+</div>
+<p class="compact">配套证据记录：<a href="mimo-research.md">MiMo 源码与教程证据</a> · <a href="ornith-research.md">Ornith 方法与数据证据</a>。本 HTML 的正文、图表与交互均内嵌，离线可读；外部来源链接需联网。</p>
+</section>
+<footer class="endnote">
+<span>MiMo × verl / Ornith 1.5<br>模型后训练专项研究与复现方案</span>
+<span>官方自报成绩 ≠ 独立复现<br>离线阅读版 · 2026.09.28</span>
+</footer>
+</main>
+</div>
+<div class="sr-only" id="copy-status" role="status" aria-live="polite">
+</div>
+<script>
+(()=>{
+ const metrics={pro:{name:'SWE-bench Pro',v:[32,44.6,47.6]},verified:{name:'SWE-bench Verified',v:[60,61.1,66.2]},terminal:{name:'Terminal Bench 2.1',v:[27,37.1,52.8]},toolathlon:{name:'Toolathlon-Verified',v:[25.9,35.2,38]}};
+ const select=document.querySelector('#metric');
+ select.addEventListener('change',()=>{const m=metrics[select.value];document.querySelectorAll('.bar-row').forEach((r,i)=>{r.querySelector('.bar-fill').style.width=m.v[i]+'%';r.querySelector('.bar-value').textContent=m.v[i].toFixed(1)});document.querySelector('#comparison-chart').setAttribute('aria-label',`${m.name}：Qwen ${m.v[0]}，MiMo SFT ${m.v[1]}，MiMo RL ${m.v[2]}；横条共同范围0到100`);document.querySelector('#gainline').textContent=`SFT 增益 +${(m.v[1]-m.v[0]).toFixed(1)}；后续 RL 增益 +${(m.v[2]-m.v[1]).toFixed(1)}。横轴统一为 0–100，单位为报告分数。`;});
+ document.querySelectorAll('[data-domain]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-domain]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));document.querySelectorAll('.domain-panel').forEach(p=>p.hidden=p.id!=='panel-'+b.dataset.domain);}));
+ const status=document.querySelector('#copy-status');
+ document.querySelectorAll('.copy').forEach(b=>b.addEventListener('click',async()=>{const value=b.parentElement.querySelector('code').textContent;try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value)}else{const t=document.createElement('textarea');t.value=value;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();if(!document.execCommand('copy')){t.remove();throw Error('copy unavailable')}t.remove();b.focus()}b.textContent='已复制';status.textContent='已复制命令。运行前请替换占位配置并检查适用环境。';setTimeout(()=>b.textContent='复制',1800)}catch{status.textContent='浏览器未允许自动复制，请选中代码手动复制。'}}));
+ const links=[...document.querySelectorAll('.rail nav a')];
+ const sections=[...document.querySelectorAll('.chapter')];
+ const mark=()=>{let id=sections[0].id;for(const s of sections){if(s.getBoundingClientRect().top<=150)id=s.id}links.forEach(a=>{if(a.hash==='#'+id)a.setAttribute('aria-current','location');else a.removeAttribute('aria-current')});const max=document.documentElement.scrollHeight-innerHeight;document.querySelector('.progress i').style.width=(max>0?Math.min(100,Math.max(0,scrollY/max*100)):100)+'%'};
+ let queued=false;addEventListener('scroll',()=>{if(!queued){queued=true;requestAnimationFrame(()=>{mark();queued=false})}},{passive:true});mark();
+ document.querySelectorAll('.mobile-menu nav a').forEach(a=>a.addEventListener('click',()=>document.querySelector('.mobile-menu').open=false));
+ let closed=[];addEventListener('beforeprint',()=>{closed=[...document.querySelectorAll('main details:not([open])')];closed.forEach(d=>d.open=true)});addEventListener('afterprint',()=>{closed.forEach(d=>d.open=false);closed=[]});
+ document.querySelector('.print-button').addEventListener('click',()=>window.print());
+})();
+</script>
+</body>
+</html>

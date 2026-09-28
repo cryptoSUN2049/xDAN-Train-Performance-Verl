@@ -1,0 +1,31 @@
+{
+  "project": "xDAN-Train-Performance-Verl",
+  "created_at": "2026-09-28",
+  "status": "source_audited_not_training_validated",
+  "origin": "https://github.com/cryptoSUN2049/xDAN-Train-Performance-Verl",
+  "direct_upstream": {
+    "repository": "https://github.com/XiaomiMiMo/verl",
+    "branch": "mimo-oss",
+    "commit": "a2ad9f6160b03ff2d47e59832bfb6b289f37c917"
+  },
+  "engine_upstream": "https://github.com/verl-project/verl",
+  "model": {
+    "id": "XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B",
+    "revision": "2367e865d009c13ac81713a2878291d33ab28177",
+    "stage": "SFT"
+  },
+  "dataset": {
+    "id": "XiaomiMiMo/MiMo-V2.6-RL-oss",
+    "revision": "639865fd3374018d6cb29b9fb82dd531406fcf5f",
+    "rows": 7780
+  },
+  "training_executed": false,
+  "hardware_profile": null,
+  "locked_training_image_digest": null,
+  "integration_policy": "Track MiMo upstream first; review engine updates on isolated branches; keep core delta minimal.",
+  "submodules": {
+    "recipe": "e7f889574b8301cc0f0fc1d57c6d67f31ffeb689",
+    "third_party/mimoagent-osr": "467f0a19016f0ac4d63b8d17a1f0da9ba07f232c",
+    "third_party/uni_agent": "c63e0b01c375ebede95e01fe92bc367df24e5bf3"
+  }
+}
