@@ -1,0 +1,23 @@
+{
+  "schema": "xdan.source-archive-deployment.v1",
+  "commit": "a2ad9f6160b03ff2d47e59832bfb6b289f37c917",
+  "source_dir": "/workspace/train-p0-dsh-integration/source-a2ad9f61",
+  "archive_sha256": "eadb21af3e1c13c87b8bec041186aabadf4b61d9b4e8928b929d3b15d4c895a2",
+  "manifest_sha256": "fb236255d751ca5721a380dde2e3f7582c57af18e699081f9f4cc0e2aed6ad74",
+  "verified_regular_files": 1810,
+  "verified_symlinks": 6,
+  "permission_supported": false,
+  "mode_translation_allowed": true,
+  "mode_counts": [
+    {
+      "requested": "0o664",
+      "actual": "0o666",
+      "files": 1752
+    },
+    {
+      "requested": "0o775",
+      "actual": "0o777",
+      "files": 58
+    }
+  ]
+}

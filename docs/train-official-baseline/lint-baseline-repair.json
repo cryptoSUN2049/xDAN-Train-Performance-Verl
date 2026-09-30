@@ -1,0 +1,108 @@
+{
+  "schema": "xdan.official-baseline-lint-repair.v1",
+  "official_commit": "a2ad9f6160b03ff2d47e59832bfb6b289f37c917",
+  "ruff_version": "0.12.2",
+  "version_authority": ".pre-commit-config.yaml:3",
+  "scope": "Worktree formatting/tutorial lint only; deployed GPU source remains the fixed official archive.",
+  "gpu_source_directory": "/workspace/train-p0-dsh-integration/source-a2ad9f61",
+  "gpu_source_archive_sha256": "d3a1e5db29ea4ec117a8f09a20a9ad4490913e6211c11e83e41a187b95f5b559",
+  "gpu_source_regular_files": 1810,
+  "gpu_source_symlinks": 6,
+  "configuration_changed": false,
+  "files": [
+    {
+      "path": "examples/tutorial/agent_loop_get_started/agent_loop_tutorial.ipynb",
+      "official_sha256": "af26150a1239fcd8b6d0a23171ed85407bd78d0bdbdf2d48d1c528bf897f698d",
+      "worktree_sha256": "85220331e25100c8932f831b88acf8b6fb9ae6cb818d227de56369104a0b4e59",
+      "change": "tutorial-lint-only",
+      "changed_cell_indices": [
+        2,
+        8,
+        10,
+        21
+      ],
+      "metadata_outputs_unchanged": true
+    },
+    {
+      "path": "examples/tutorial/ray/tutorial.ipynb",
+      "official_sha256": "25f8d99bfb958df3ee435f210f3aa859654b8126ea96ecfae68f38cccfe295d5",
+      "worktree_sha256": "cf145dd211875a9b506a2513ad52a804d435638dbe0943f2f7ab6eb3eb1e41d9",
+      "change": "tutorial-lint-only",
+      "changed_cell_indices": [
+        8,
+        14,
+        41
+      ],
+      "metadata_outputs_unchanged": true
+    },
+    {
+      "path": "recipes/arvo/env_actor.py",
+      "official_sha256": "1cfe5d265c1e5879aa86891a6063be8530c3e577c08556ddf47b50232da057e6",
+      "worktree_sha256": "e9078e35f5f20ac3e0450c6257c5b743610233bbb77ee56280b2f0a9354c4b5f",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "recipes/design/agent_loop.py",
+      "official_sha256": "b2cb2c0e94b9efb55764bac224823ea9a8c1736ee191ef68a448864f37d13de8",
+      "worktree_sha256": "4a25e2c32b707a2232480aca22d306fa7b8d77013c3dc7814d42627b621b65b9",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "recipes/design/env_actor.py",
+      "official_sha256": "621411d07e782ab2267d1373ca1835ac9daa9c3c8c1cd88842c98e1b959f9fef",
+      "worktree_sha256": "988463b6117313c304a38afcf4bb8980606262ddd0ffb0cb68679ff38db724ac",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "recipes/general/agent_loop.py",
+      "official_sha256": "bdadc80cdca7e2448108ab8f7e4ac9fd494f4c77b11b7836e5691b807c4053f6",
+      "worktree_sha256": "f12db5f9286fc071dc3f2655617080f981e91e74973652d27e4ecadb0bfc1a27",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "recipes/general/env_actor.py",
+      "official_sha256": "96096c394c91459f09c25a2866559f39e8c6c34c8cc4f52a123b76d03a4024a2",
+      "worktree_sha256": "00d1a0cb5b0c74f2e3523c56eb7c60faebcf1846390dccafc5642e808180cf3f",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "recipes/general/general_agent/environment.py",
+      "official_sha256": "6a76a5c6ee0e1608fbf204139ec87a5052bdb06ffb40e6d397dfd84fdc2a9a04",
+      "worktree_sha256": "c58f74b29b8775a9a22f666215f3e480907547cc83ba7a6740bd1873095bb7c2",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "recipes/general/general_agent/k8s_sidecar.py",
+      "official_sha256": "bf3a03c85c9098b61ccb57a0b3556814023b1cdb6600e8a6d89a727859708b52",
+      "worktree_sha256": "840f61c2e6e18bb0fc4eb9f2f2e38eaf70e9e14729eceef482507406c01b7904",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "tests/recipes/design/test_webdev_launcher_on_cpu.py",
+      "official_sha256": "929ec82ea20f48f30aa462d7335c767e54561a257b321d4a6a2c66bf2175643b",
+      "worktree_sha256": "97fa44448d7d321ffc9be661a2e977975fb3b812342f4fcdee1bd2faec9f01ae",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    },
+    {
+      "path": "verl/utils/length_penalty.py",
+      "official_sha256": "aa8273f5e49f47ee12da2b97d52da614866ed9f39bfbbdacfadb6bea1454684a",
+      "worktree_sha256": "9e998da7541298b8750aa85976e70386d36da4e7e00d6ea3f48a43bd99716c05",
+      "change": "ruff-format-only",
+      "python_ast_unchanged": true
+    }
+  ],
+  "gate_commands": {
+    "uv run --no-project --with ruff==0.12.2 ruff check .": "All checks passed!",
+    "uv run --no-project --with ruff==0.12.2 ruff format --check .": "725 files already formatted"
+  },
+  "notebook_e402_reason": "The megatron import must follow sys.path.append(new_path); the added noqa retains that order.",
+  "commit_push": "not performed"
+}
