@@ -282,11 +282,14 @@ def test_placement_reaches_the_pod_actor_and_survives_hydra():
         assert isinstance(parsed, str), f"Ray's env_vars rejects non-strings, got {type(parsed)}"
 
 
-@pytest.mark.parametrize("var,key", [
-    ("WEBDEV_NODE_SELECTOR", "node_selector"),
-    ("WEBDEV_TOLERATIONS", "tolerations"),
-    ("WEBDEV_DNAT_PROXY_IP", "dnat_proxy_ip"),
-])
+@pytest.mark.parametrize(
+    "var,key",
+    [
+        ("WEBDEV_NODE_SELECTOR", "node_selector"),
+        ("WEBDEV_TOLERATIONS", "tolerations"),
+        ("WEBDEV_DNAT_PROXY_IP", "dnat_proxy_ip"),
+    ],
+)
 def test_unset_or_blank_placement_leaves_the_profile_alone(monkeypatch, var, key):
     from recipes.design.env_actor import _apply_placement_overrides
 

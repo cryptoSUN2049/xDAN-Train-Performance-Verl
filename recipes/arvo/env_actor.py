@@ -120,7 +120,6 @@ class DatasetEnvActor:
         else:
             logger.warning(msg)
 
-
     def _create(self) -> None:
         from mimoagent.environments.utils import make_dataset_env
 
@@ -164,7 +163,6 @@ class DatasetEnvActor:
             "pod_name": getattr(self.dataset_env.env, "pod_name", ""),
             "node_name": getattr(self.dataset_env.env, "node_name", ""),
         }
-
 
     def _tool_env(self):
         raw_env = self.dataset_env.env
@@ -210,7 +208,6 @@ class DatasetEnvActor:
         assert self.dataset_env is not None, "execute() before setup()"
         return await asyncio.to_thread(lambda: self.dataset_env.env.execute(command, **kwargs))
 
-
     async def calculate_reward(self, timeout: float | None = None, final_message: str = "") -> tuple[float, str, dict]:
         if self._infra_error:
             self._log(f"skipping reward, infra_error={self._infra_error}")
@@ -244,7 +241,6 @@ class DatasetEnvActor:
         self._log(f"reward={reward}")
         self._log(f"test_output={test_output}")
         return reward, test_output, extra
-
 
     def get_stats(self) -> dict[str, Any]:
         return {"cleanup_failures": self._cleanup_failures, "infra_error": self._infra_error}

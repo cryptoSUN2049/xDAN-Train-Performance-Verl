@@ -208,7 +208,6 @@ class _VerlRolloutModel:
         self.n_prompt_tokens = 0
         self.n_generated_tokens = 0
 
-
     def query(self, messages: list[dict[str, Any]], **kwargs) -> dict[str, Any]:
         """Blocking call from the agent thread; ``kwargs`` (tools/tool_choice) is ignored.
 
@@ -227,7 +226,6 @@ class _VerlRolloutModel:
             "output_tokens": self.n_generated_tokens,
             "total_tokens": self.n_prompt_tokens + self.n_generated_tokens,
         }
-
 
     async def _agenerate(self, messages: list[dict[str, Any]]) -> dict[str, Any]:
         if self.stopped:
@@ -614,7 +612,6 @@ class GeneralAgentLoop(AgentLoopBase):
 
         return resolve_config_path(path)
 
-
     def _dump_dir(self, instance_id: str, rollout_uid: str) -> Optional[str]:
         """One directory per rollout under ``$AGENT_DEBUG_DIR`` (unset = no dumps).
 
@@ -798,7 +795,6 @@ class GeneralAgentLoop(AgentLoopBase):
             "instance_id, env_task_dir, docker_image, problem_statement)."
         )
 
-
     @rollout_trace_op
     async def run(self, sampling_params: dict[str, Any], **kwargs) -> AgentLoopOutput:
         self.loop = asyncio.get_running_loop()
@@ -926,7 +922,6 @@ class GeneralAgentLoop(AgentLoopBase):
                     self._reward_timeout_or_none,
                     exit_message or "",
                 )
-
 
             if (
                 self.invalid_reward_for_infra

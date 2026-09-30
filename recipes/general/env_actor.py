@@ -123,13 +123,11 @@ class DatasetEnvActor:
             self._dump_dir.mkdir(parents=True, exist_ok=True)
             self._env_logger = make_file_logger(f"agent.env.{instance_id}", self._dump_dir / "env.log")
 
-
     def _log(self, msg: str) -> None:
         if self._env_logger is not None:
             self._env_logger.info(msg)
         else:
             logger.warning(msg)
-
 
     def _create(self) -> None:
         """Build the DatasetEnvironment and start the pod. Blocking; raises on failure."""
@@ -252,7 +250,6 @@ class DatasetEnvActor:
             "mcp_bridge_python": getattr(_env, "mcp_bridge_python", "python3"),
         }
 
-
     def _execute_tool_sync(self, name: str, params: dict[str, Any]) -> dict[str, Any]:
         """Run one mimoagent tool, mapping its exceptions onto tagged return values.
 
@@ -296,7 +293,6 @@ class DatasetEnvActor:
         """Raw pod exec. Not used by the rollout; kept for debugging / smoke scripts."""
         assert self.dataset_env is not None, "execute() before setup()"
         return await asyncio.to_thread(lambda: self.dataset_env.env.execute(command, **kwargs))
-
 
     async def calculate_reward(self, timeout: float | None = None, final_message: str = "") -> tuple[float, str, dict]:
         """Delegate to mimoagent's dataset-specific grading. Never raises."""
@@ -367,7 +363,6 @@ class DatasetEnvActor:
                 (self._dump_dir / "model_patch.diff").write_text(patch, encoding="utf-8", newline="\n")
         except Exception as e:
             self._log(f"failed to dump model patch: {e}")
-
 
     def get_stats(self) -> dict[str, Any]:
         return {"cleanup_failures": self._cleanup_failures, "infra_error": self._infra_error}

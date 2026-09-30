@@ -237,7 +237,6 @@ class _VerlRolloutModel:
         self.n_prompt_tokens = 0
         self.n_generated_tokens = 0
 
-
     def query(self, messages: list[dict[str, Any]], **kwargs) -> dict[str, Any]:
         """Blocking call from the agent thread; ``kwargs`` (tools/tool_choice) is ignored.
 
@@ -313,7 +312,6 @@ class _VerlRolloutModel:
                 except OSError:
                     pass  # dump filesystem hiccups must never fail the rollout
         return markers
-
 
     async def _agenerate(self, messages: list[dict[str, Any]]) -> dict[str, Any]:
         if self.stopped:
@@ -795,7 +793,6 @@ class WebdevAgentLoop(AgentLoopBase):
 
         return resolve_config_path(path)
 
-
     @staticmethod
     def _reward_extra_info(
         *, reward: float, true_reward: float, model_patch_len: float, repetition_collapse: float
@@ -953,7 +950,6 @@ class WebdevAgentLoop(AgentLoopBase):
             "on every dataset row, carrying at least instance_id, problem_statement, cwd and "
             "docker_image"
         )
-
 
     @rollout_trace_op
     async def run(self, sampling_params: dict[str, Any], **kwargs) -> AgentLoopOutput:
