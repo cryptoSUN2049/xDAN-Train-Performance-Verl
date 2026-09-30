@@ -1,0 +1,17 @@
+{
+  "paused_at_utc": "2026-09-30T07:57:27.280165+00:00",
+  "user_instruction": "\u5148\u6682\u505c \u670d\u52a1 \u6ce8\u610fcommit\u548chandoff",
+  "processes": [
+    {
+      "pid": 32896,
+      "status": "SIGTERM_sent",
+      "identity": "Wed Sep 30 09:12:13 2026     /opt/homebrew/Cellar/python@3.12/3.12.12_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python /Users/gumpm5/Documents/Code/xDAN-Train-Performance-Verl/.codex/worktrees/train-p0-integration/docs/train-p0-integration/operations-recoveredpod-20260930/budget-guard/guard_gpu_pod.py --pod-id oeab4wv7wpnc8x --deadline 2026-09-30T12:51:43.743000+00:00 --output-dir /Users/gumpm5/Documents/Code/xDAN-Train-Performance-Verl/.codex/worktrees/train-p0-integration/docs/train-p0-integration/operations-recoveredpod-20260930/budget-guard/local-state --cli /opt/homebrew/bin/runpodctl"
+    },
+    {
+      "pid": 32897,
+      "status": "already_absent"
+    }
+  ],
+  "gpu_pod_control_plane": "not_found; account Pod list empty",
+  "network_volume_deleted": false
+}

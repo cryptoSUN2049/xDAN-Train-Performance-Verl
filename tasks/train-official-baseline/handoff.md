@@ -1,8 +1,10 @@
 # TL;DR
 
+**用户已于2026-09-30 07:57 UTC明确暂停服务。平台goal状态paused；不恢复GPU/训练/付费资源，等用户明确恢复。**
+
 官方优先，当前更新 0；源码 a2ad9f6160b03ff2d47e59832bfb6b289f37c917。
 4×RTX PRO6000 96GB；官方 colocate_async，actor TP4 / rollout TP2，9B SFT，64K。
-服务器 root@157.157.221.177:30134，截止 2026-09-30T12:51:43.743Z 不延长。
+原服务器 root@157.157.221.177:30134 在07:49 UTC已不可达；控制面Pod not_found、列表为空。regional卷72jdno5cuk仍在。截止 2026-09-30T12:51:43.743Z 不延长。
 
 ## 本轮交付物
 
@@ -18,13 +20,14 @@ docs/train-official-baseline/design.md：方案与验收；prepare_baseline.py /
 
 ## 下一里程碑
 
-- [ ] 源码部署与服务器 CPU 配置预检。
+- [x] 源码部署与服务器 CPU 配置预检（1810files+6links；07:42 UTC exit0）。
+- [ ] 获取当前新实例状态/SSH，再核验云盘与uv资产。
 - [ ] 预算清理脚本覆盖新 source/run。
 - [ ] step1 更新/保存，恢复 step2/holdout，监控验收。
 
 ## 分支/部署状态
 
-worktree-train-official-baseline，从官方 a2ad9f61 创建；准备器尚未部署。已有独立 Pod 停机 guard931、旧清理34805。更新清理守护后再启动 fit。
+worktree-train-official-baseline，从官方 a2ad9f61 创建；af4164b7/f6f7e96b已push，暂停交接另有后续提交。DSH WT最新本地保存c3979814（含140 CPU测试证据），全库历史notebook/固定vendor门禁未过，未push。source/12配套运行文件已部署，CPU预检通过。新closer启动SSH命令失败，无法确认执行，不声称armed。本地guard32896/caffeinate32897已停止并独立ps确认均不存在；原Pod现not_found、Pod列表为空，远端guard当前不可查。更新清理守护后再启动 fit。
 
 ## 冷启动 checklist
 

@@ -1,0 +1,16 @@
+{
+  "paused_at_utc": "2026-09-30T07:59:47.865728+00:00",
+  "goal_status": "paused",
+  "pods": [],
+  "old_pod_query": "not_found",
+  "network_volume_id": "72jdno5cuk",
+  "network_volume_exists": true,
+  "official_cpu_preflight_returncode": 0,
+  "official_training_updates": 0,
+  "local_guard_pids_absent": [
+    32896,
+    32897
+  ],
+  "new_official_closer_armed": "unconfirmed due to SSH disconnect",
+  "training_acceptance": false
+}
