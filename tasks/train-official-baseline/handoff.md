@@ -1,6 +1,6 @@
 # TL;DR
 
-**用户已于2026-09-30 07:57 UTC明确暂停服务。平台goal状态paused；不恢复GPU/训练/付费资源，等用户明确恢复。**
+**2026-10-01用户要求评估恢复服务器、比较模式/参数并写脚本注释。本轮未创建新Pod；平台goal仍paused。旧截止已过，历史launcher必须重新绑定身份/期限/守护。**
 
 官方优先，当前更新 0；源码 a2ad9f6160b03ff2d47e59832bfb6b289f37c917。
 4×RTX PRO6000 96GB；官方 colocate_async，actor TP4 / rollout TP2，9B SFT，64K。
@@ -61,3 +61,18 @@ worktree-train-official-baseline，从官方 a2ad9f61 创建；af4164b7/f6f7e96b
 ## 冷启动 checklist
 
 先读本文件、tasks/todo.md、docs/train-official-baseline/design.md。核对当前时钟与固定截止；SSH 检查 GPU/guard/run 原始日志，再决定下一步。不要沿用旧状态声称训练已启动。
+
+## 2026-10-01补充交付与结论
+
+- `docs/train-official-baseline/script-comparison.md` — 144行；三列参数/路径、三模式、速度/质量与容量证据边界。
+- `docs/train-official-baseline/launch-4gpu-colocate-annotated.sh` — 144行；历史launcher的就地解释；有效tokens不变。
+- `docs/train-official-baseline/prepare_baseline.py` — 401行；只新增注释输出，官方源码/历史evidence保持不变。
+- `docs/train-official-baseline/script-annotation-verification.json` — 11行；两条shell的tokens/bash验收，未产生GPU任务。
+- `docs/train-official-baseline/restore-assessment-20261001.md` — 31行；同卷、同镜像、持久uv快照及增量wheel恢复计划。
+- integration的`scripts/code/train-dsh-separate-async.sh` — 新增15行注释，本地commit f899fe96；保留历史untracked文件，历史全库门禁仍阻挡push。
+
+余额查询约$2996，原standard4000GB区域卷仍在；4×RTXPRO6000合计$8.36/h、库存Low，区域四卡成交未保证。新Pod未启动。12小时候选GPU费用约$100.32，旧截止不续用。
+
+官方四卡colocate采样阶段两TP2 replica，训练TP4；DSH 2+2稳态只有一个独立TP2 replica，训练TP2但可重叠。锁定源码should_switch_to_rollout直接False，不存在已实现的持续空闲借池策略。原版Code validator只接受colocate_async。
+
+8项现有CPU测试通过；注释tokens不变/bash语法通过；官方全库Ruff0.12.2两项通过。当前实际官方GPU更新0，未形成速度或质量对照证据。恢复时先做原版闭环，随后固定算法/harness作拓扑比较。

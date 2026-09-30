@@ -27,6 +27,7 @@ RUN_ID = "official-code-4gpu-64k-r1-20260930"
 RUN = BASE + "/runs/" + RUN_ID
 CHECKPOINT = "/opt/train-p0-dsh-integration/checkpoints/" + RUN_ID
 VENV = "/opt/env_infra/rtx6000/xdan-train-performance-verl-uv-6e6cc6b2978a1654/venv"
+# 历史运行绑定：新 Pod 必须重新绑定 run/W&B ID、预算期限与守护，不能原样续跑。
 DEADLINE = "2026-09-30T12:51:43.743Z"
 
 
@@ -163,8 +164,53 @@ def launch_bytes() -> bytes:
         "MODEL_REQUEST_TIMEOUT": "3600",
         "MODEL_SDK_MAX_RETRIES": "0",
     }
-    lines = ["#!/usr/bin/env bash", "set -euo pipefail", f"# Official source {COMMIT}; immutable deadline {DEADLINE}."]
-    lines += [f"export {key}={shlex.quote(value)}" for key, value in environment.items()]
+    # 注释写入生成的 shell，便于离开 Python 准备器后独立审阅参数。
+    # 这里只解释现有值；冻结官方源码和原始 evidence/launch.sh 均不改写。
+    comments = {
+        "UV_ENV_DIR": [
+            "uv: reuse the verified project stack; a new Pod must restore it first.",
+            "/opt is ephemeral; persistent archives/wheels live in /workspace/env_infra/rtx6000/.",
+        ],
+        "SOURCE": ["官方源码 a2ad9f61，核心/两个子模块保持原字节；本脚本仅设置运行配置。"],
+        "CHECKPOINT_DIR": ["checkpoint 在 /opt 活跃写入；关 Pod 前必须校验并备份到 /workspace。"],
+        "NETRC": ["认证仅传私有文件路径；W&B/Modal token 不进入 Hydra argv 或仓库。"],
+        "RL_INSIGHT_SERVER_URL": ["原生 W&B + RL-Insight logger；服务可达还需真实 step/trace 验收。"],
+        "TRAINER_MODE": [
+            "官方 Code validator 要求 colocate_async；4 张卡在采样/训练阶段共享。",
+            "ROLLOUT_NNODES=0 表示没有独立采样池，不表示不采样，也不是额外再租 4 张卡。",
+            "DSH 扩展脚本为 separate_async，独立训练 2 卡 + 采样 2 卡。",
+        ],
+        "ACTOR_TP": ["训练 TP4/CP1；采样 TP2，四卡采样阶段可形成 2 个 TP2 replica。"],
+        "MAXLEN": [
+            "64K 是训练模型上下文/轨迹预算：4096 prompt + 61440 response。",
+            "SGLang context_length 也须显式设置 65536；单次模型请求上限另设 32768。",
+        ],
+        "N": [
+            "最小闭环容量配置 N4/batch1/mini1/micro1/static；官方默认 N16/batch64。",
+            "reward 全相同的组可被原版 filter_groups 丢弃；配置可用不等于已有有效更新。",
+        ],
+        "MEGATRON_OFFLOAD": ["沿用官方阶段 offload；它不能代替检查 optimizer 的 CPU/GPU step 设置。"],
+        "SAVE_FREQ": [
+            "每个真实 step 保存；fresh=1，resume=2，从本轮 CP1 恢复。",
+            "原版最后一步仍触发 validation；两步闭环不保证四种 harness 都已覆盖。",
+        ],
+        "MIXED_HARNESS_MODE": [
+            "官方四原生 harness: mini-mimocode / mini-bash / mini-claude-code / mini-codex。",
+            "step-hash: 同一 prompt 的 N 条轨迹选同一个 arm；保留原版 GRPO 设置。",
+            "DSH paired-subgroup: 同一组 DSH2 + MiMo2，并按 harness 分组算 advantage。",
+        ],
+        "HARNESS_TURN_MAX_TOKENS": ["单 turn 32768，沿用官方；DSH SDK 的单 turn 默认 4096，二者都不等于总上下文。"],
+    }
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        f"# Official source {COMMIT}; immutable deadline {DEADLINE}.",
+        "# 历史 2026-09-30 配置：恢复服务器前重新绑定 run/W&B/deadline/守护，不直接执行旧 run。",
+        "# 三种 V1 模式见 script-comparison.md；当前走官方 colocate_async 基线。",
+    ]
+    for key, value in environment.items():
+        lines += [f"# {comment}" for comment in comments.get(key, [])]
+        lines.append(f"export {key}={shlex.quote(value)}")
     lines += [
         'export PATH="$UV_ENV_DIR/bin:$PATH"',
         'test "$(command -v python3)" = "$UV_ENV_DIR/bin/python3"',
@@ -174,6 +220,7 @@ def launch_bytes() -> bytes:
         'PHASE="${1:-fresh}"',
         'test "$#" -le 1',
         "RESUME_ARGS=(trainer.resume_mode=disable trainer.resume_from_path=null)",
+        "# fresh 禁用旧 checkpoint；resume 只加载本次完整 CP1，必须取得恢复后的真实 step2。",
         'case "$PHASE" in',
         '  fresh) export TOTAL_STEPS=1 WANDB_RUN_ID=a9off001 RUN_DIR="$BASE_RUN" ;;',
         '  resume) export TOTAL_STEPS=2 WANDB_RUN_ID=a9off002 RUN_DIR="$BASE_RUN/resume-step2"',
@@ -186,6 +233,7 @@ def launch_bytes() -> bytes:
         'export UNI_AGENT_LOG_DIR="$RUN_DIR/trajectories" ROLLOUT_DATA_DIR="$RUN_DIR/rollouts"',
         'export VALIDATION_DATA_DIR="$RUN_DIR/validation" RESOLVED_CONFIG_PATH="$RUN_DIR/resolved_config.yaml"',
         'if [[ "${CPU_CONFIG_PREFLIGHT:-0}" == 1 ]]; then',
+        "  # CPU 只解析配置/原版 validator；不创建 GPU worker 或训练，也不证明模型容量。",
         '  export CUDA_VISIBLE_DEVICES="" PREFLIGHT_ONLY=1 SKIP_CLUSTER_CHECK=1',
         '  export RESOLVED_CONFIG_PATH="$RUN_DIR/cpu-resolved-config.yaml"',
         "else",
@@ -199,11 +247,13 @@ def launch_bytes() -> bytes:
         'cd "$SOURCE"',
         "# The root operator must verify deadline guard and full checkpoint receipts before fit.",
         "FORWARD_ARGS=()",
+        "# 已有 Ray head 不会自动继承当前 shell：显式转发认证路径、run 身份、监控地址。",
         "for name in NETRC MODAL_CONFIG_PATH MODAL_PROFILE WANDB_ENTITY WANDB_RUN_ID "
         "WANDB_MODE WANDB_RESUME WANDB_DIR RUN_DIR VERL_FILE_LOGGER_PATH "
         "RL_INSIGHT_SERVER_URL VERL_RL_INSIGHT_ENABLE MIMOAGENT_RG_PATH; do",
         '  FORWARD_ARGS+=("+ray_kwargs.ray_init.runtime_env.env_vars.$name=\\"${!name}\\"")',
         "done",
+        "# 原版入口 -> recipes/code/run_train.sh -> verl.trainer.main_ppo；不用 DSH runner/custom sampler。",
         "exec bash scripts/code/train.sh \\",
         "  ++actor_rollout_ref.rollout.engine_kwargs.sglang.context_length=65536 \\",
         "  actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=False \\",

@@ -1,0 +1,11 @@
+{
+  "comments_only": true,
+  "official_generated_shell_tokens_unchanged": true,
+  "dsh_shell_tokens_unchanged": true,
+  "bash_syntax": "passed",
+  "official_source_commit": "a2ad9f6160b03ff2d47e59832bfb6b289f37c917",
+  "annotated_launcher_sha256": "073da2dab1d04d3520971b68bd0b9a0f18dab72942da5353feb7fb33f582732d",
+  "historical_evidence_unchanged": true,
+  "new_gpu_pod_created": false,
+  "run_binding": "historical 2026-09-30; needs new identity/deadline before production"
+}

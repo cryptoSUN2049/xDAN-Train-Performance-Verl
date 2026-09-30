@@ -11,7 +11,7 @@
 
 ## 当前真实状态
 
-用户已明确暂停服务（2026-09-30 07:57 UTC）。本地旧guard/caffeinate已停止并确认进程不存在；平台goal=paused。没有创建新GPU实例。下一轮必须等用户明确恢复。
+用户已于2026-09-30 07:57 UTC暂停服务；2026-10-01要求评估恢复、比较脚本及三种模式。本地旧guard/caffeinate已停止，平台goal仍为paused；本轮只查询资源和整理方案，没有创建新GPU实例。旧截止已过，不能直接执行下面的历史运行命令。
 
 2026-09-30 07:42 UTC，服务器执行本次官方 launcher 的 `CPU_CONFIG_PREFLIGHT=1` 成功返回 0，stdout 明确报告 `preflight passed`。这包含实际 Pod Python 的配置解析和原版 validator，**不包含 GPU 初始化或 fit**。
 
@@ -54,6 +54,8 @@ W&B 通过 SDK 写入，API 用于独立读取 run/history，不能把“能调�
 
 ## 重建与执行
 
+下面的命令、W&B ID及evidence属于历史20260930运行绑定；新实例须重新生成身份/截止及守护。新恢复评估见 [restore-assessment-20261001.md](restore-assessment-20261001.md)。
+
 本机生成原字节配置、原生 profiles、源码身份和最小差异 manifest：
 
 ```bash
@@ -80,3 +82,12 @@ CPU_CONFIG_PREFLIGHT=1 bash /workspace/train-p0-dsh-integration/runs/official-co
 21 CPU tests passed，包含 fresh/resume Hydra compose、官方 validator、固定截止归属检查。官方 `.pre-commit-config.yaml` 固定 Ruff0.12.2；全库 `ruff check .` 与 `ruff format --check .` 均通过，725文件格式检查通过。
 
 已推送 `worktree-train-official-baseline`：`af4164b7`（门禁修复）、`f6f7e96b`（复现方案）。真实 GPU 更新/checkpoint/恢复/holdout 尚待验收；之后再接回 DSH/2+2/较大数据量的主线。
+
+## 脚本与模式对照入口（2026-10-01）
+
+- [script-comparison.md](script-comparison.md)：官方默认、官方四卡与DSH 2+2的路径、参数、核心差异，三模式支持边界及速度/质量分析。
+- [launch-4gpu-colocate-annotated.sh](launch-4gpu-colocate-annotated.sh)：参数就地注释，仍属历史run配置，不能直接恢复生产。
+- [script-annotation-verification.json](script-annotation-verification.json)：两条shell有效tokens与修改前一致，历史evidence未覆盖。
+- [restore-assessment-20261001.md](restore-assessment-20261001.md)：同regional卷恢复uv及Apex/cachetools、新run和12小时预算的具体评估。
+
+本轮8项现有CPU测试通过，全库Ruff0.12.2 check/format通过。四卡colocate与2+2均未完成本轮对照测速；不承诺异步必然加速或提高模型质量。
