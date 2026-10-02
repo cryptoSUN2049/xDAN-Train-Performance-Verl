@@ -31,18 +31,31 @@
 - [x] 挑入 5 个 P0 verl 修复（`ced8e69d` 依赖 `0fab9666`，跳过）
 - [x] 移植 DSH runtime（`01a2ad9c`）；CPU 预检和 dataclass 检查通过
 - [x] DSH 运行时 payload 注入（`4faed1ec`）：任务镜像里不必再预装 DSH；在 Harbor 镜像上 4/4 启动通过
-- [ ] GPU：Code train8 × {DSH + mimocode}，paired-subgroup，按 harness 分组算 advantage，跑 2 步（队列 1 第三段）
+- [x] GPU：Code train8 × {DSH + mimocode}，paired-subgroup，按 harness 分组计算 advantage，跑 2 步（d1，rc=0）。step1 全对，grad 为 0；step2 DSH 0.5、mimocode 0.0，grad 1.04
 
 ## C. Harbor 任务接入（正交）
 
 - [x] `HarborEnvironment`（`dataset_type: harbor`），复刻 Harbor verifier 的约定；失败即拒收（`beb7ad42`）
 - [x] 数据转换（只支持带预构建镜像的任务）；oracle 检查 4/4：未改动时 0 分，跑参考答案后 1 分
-- [ ] GPU：Harbor × mimocode，跑 2 步（队列 1 第二段，正在跑）
-- [ ] GPU：Harbor × {DSH + mimocode}，跑 2 步（队列 2）
-- [ ] 正式训练要用不在 TB2.1 里的任务。stage1 的 500 个任务需要从 Dockerfile 构建镜像（Modal `from_dockerfile` → `im-` id），这一步还没做
+- [x] GPU：Harbor × mimocode，跑 2 步（h1，rc=0）：reward 0.50→0.75，grad 1.27 / 1.01；checkpoint 已丢弃（TB2.1）
+- [x] GPU：Harbor × {DSH + mimocode}，跑 2 步（hd1，rc=0）：DSH payload 注入 8 次；step2 DSH 0.75 / mimocode 0.25，grad 0.29；checkpoint 已丢弃
+- [x] stage1（HF `gump2049/xDAN-Harbor-Stage1-Tasks` 的 ladderA-v1 切片）：500+8 的镜像全部构建完成（Modal 缓存命中）；oracle 试点 20/20 通过（`002e8c97`、`717d9acf`）
+  - 数据：`/workspace/xdan-verl-fusion/data/harbor-stage1/{train,validation}.parquet`；镜像映射在 `image-map-*.json`
+- [ ] 全量池 `gump2049/xDAN-Harbor-Stage1-Tasks-Full`（15,406 题，网盘在 `data-eval-set-v1/repo`）：已转换，但还没审计。计划先抽 2,000 题做构建和 oracle 审计，**等用户确认批量和 Modal 预算**
+- [ ] 评测隔离机制：prepare_data 内置黑名单（TB2.1、SWE-bench Verified、eval-set-v1、各 holdout），命中直接报错
+
+## D. 已处理数据的复用（盘点：2026-10-02）
+
+- [ ] Code 2698 训练集里含有 holdout100 → 切出 2598 条干净的 train，作为任务 × harness 的主力数据。用 DSH payload，不需要建镜像
+- [ ] train8 / minimal：GHCR 上的单任务 DSH 镜像换回官方镜像，验证 payload 可以完全替代它们
+- [ ] 对方 r4/r6/r7/r8 中新增的 47 题：build_images + oracle
+- Cyber / General / Webdev 的 verifier 写死在 AgentLoop 里，暂不进 harness 矩阵；Music 是单轮任务，不在矩阵内
 
 ## 运行时发现
 
 - `--cfg job` 只组装配置，不实例化 dataclass；新 launcher 一定要加跑 dataclass 检查。
 - `train-dsh-minimal.sh` 强制要求 DSH gateway；非 DSH 的 harness 走官方 `scripts/code/train.sh`。
 - TB2.1 是对方的评测基准，只用来验证链路，checkpoint 不保留。
+- 冒烟时 GPU 平均利用率只有 50–66%，26–43% 的时间在空闲（在等 Modal 沙箱）。正式训练要提高并发轨迹数，或改用 separate_async。
+- 单步跑 2 题 × 4 条，很容易整组得分相同，导致 grad 为 0。正式训练前要打开 DAPO 过滤，并把 batch 加大。
+- Harbor 的参考解依赖 `/solution` 目录下的兄弟文件，oracle 必须把整个 `solution/` 上传。
