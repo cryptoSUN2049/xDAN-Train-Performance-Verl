@@ -811,7 +811,14 @@ class MegatronEngine(BaseEngine):
             del_local_after_load: Whether to delete local copy after loading.
         """
         if self._is_offload_param:
-            load_megatron_model_to_gpu(self.module)
+            # GPU optimizer restore needs weights and optimizer state, not DDP
+            # gradient buffers. Materialize gradients on the next train context.
+            # Keep the existing Hybrid dummy-step and Megatron-FSDP load paths.
+            optimizer_overrides = self.optimizer_config.override_optimizer_config or {}
+            load_grad = bool(optimizer_overrides.get("optimizer_cpu_offload", False)) or (
+                self.engine_config.use_megatron_fsdp
+            )
+            load_megatron_model_to_gpu(self.module, load_grad=load_grad)
         self.checkpoint_mananager.load_checkpoint(
             local_path=local_path, hdfs_path=hdfs_path, del_local_after_load=del_local_after_load
         )
