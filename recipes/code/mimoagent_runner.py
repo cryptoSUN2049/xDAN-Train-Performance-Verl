@@ -267,8 +267,21 @@ def _dsh_model_route(model, environment_config, agent_config):
             model_kwargs.update(original)
 
 
+def _validate_harbor_reward(extra: dict | None) -> None:
+    """Harbor verdicts the verifier could not produce are dropped, never trained as 0."""
+    extra = extra or {}
+    if extra.get("error_category") or extra.get("transport_error") or "harbor_reward" not in extra:
+        raise RuntimeError(
+            f"Harbor verifier did not produce a verdict ({extra.get('error_category') or 'no reward'}); "
+            "rollout is ungradable"
+        )
+
+
 def _validate_code_reward(instance: dict, extra: dict | None) -> None:
     """A failed verifier invocation is not a negative policy example."""
+    if instance.get("dataset_type") == "harbor":
+        _validate_harbor_reward(extra)
+        return
     if instance.get("dataset_type") != "opensource-code":
         return
     extra = extra or {}
@@ -298,6 +311,10 @@ def _run_sync(
 
     environment_config = dict(config.get("environment") or {})
     environment_config.update(environment_overrides)
+    if instance.get("dataset_type") == "harbor":
+        from recipes.harbor.environment import register as register_harbor
+
+        register_harbor()
     if instance.get("dataset_type") == "opensource-code" and environment_config.get("git_leak_prevention") == "strip":
         from recipes.code.code_environment import make_code_dataset_env
 

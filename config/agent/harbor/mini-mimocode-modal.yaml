@@ -1,0 +1,40 @@
+# Harbor task x MiMo-Code native loop. Task image, working directory and tests come from the row
+# (dataset_type: harbor); grading runs the task's own tests/test.sh (recipes/harbor/environment.py).
+use_dataset_env: true
+
+agent:
+  type: mimocode-agent
+  tools:
+    - tool: bash
+      config:
+        timeout: 60
+        max_timeout: 300
+    - tool: read
+    - tool: write
+    - tool: edit
+    - tool: grep
+    - tool: glob
+    - tool: task
+  step_limit: 200
+
+environment:
+  environment_class: modal
+  timeout: 300
+  sandbox_timeout: 3600
+  cpu: 2
+  memory: 4096
+  # Harbor grades the container state; leave the task's git history and build files alone.
+  anti_hack_cleanup: false
+  git_leak_prevention: none
+  # Harbor test.sh installs uv/pytest at grading time.
+  block_network: false
+  raise_on_transport_error: true
+
+model:
+  model_name: policy
+  protocol: chat
+  model_kwargs:
+    temperature: 1.0
+    max_tokens: 4096
+    timeout: 600
+    max_retries: 0

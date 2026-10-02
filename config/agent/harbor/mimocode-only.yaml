@@ -1,0 +1,3 @@
+harnesses:
+  - label: mini-mimocode
+    config: ./mini-mimocode-modal.yaml
