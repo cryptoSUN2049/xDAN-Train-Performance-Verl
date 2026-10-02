@@ -912,6 +912,34 @@ class MegatronCheckpointManager(BaseCheckpointManager):
         ):
             model_sharded_state_dict = self._build_model_sharded_state_dict(metadata)
 
+        # Hybrid CPU optimizers may initialize state with a dummy step that
+        # writes back to live model weights, including while building the
+        # optimizer sharded state dict. Finish all optimizer loading before
+        # restoring model weights; RNG restoration must remain last.
+        # ── Load optimizer / LR scheduler ───────────────────────────────────
+        if self.should_load_optimizer:
+            optim_sd = self._build_optimizer_state_dict(model_sharded_state_dict, metadata, is_loading=True)
+            loaded_optim = load_dist_checkpointing(
+                sharded_state_dict=optim_sd,
+                ckpt_dir=optim_dist_path,
+            )
+            assert "optimizer" in loaded_optim, (
+                f"Optimizer state dict not found in {loaded_optim.keys()}. "
+                f"Please check the checkpoint file {optim_dist_path}."
+            )
+            self.optimizer.load_state_dict(loaded_optim["optimizer"])
+            log_with_rank(f"Loaded optimizer checkpoint from {optim_dist_path}", rank=self.rank, logger=logger)
+            if self.use_checkpoint_opt_param_scheduler:
+                assert "lr_scheduler" in loaded_optim, (
+                    f"LR scheduler state dict not found in {loaded_optim.keys()}. "
+                    f"Please check the checkpoint file {optim_dist_path}."
+                )
+                if self.lr_scheduler is not None:
+                    self.lr_scheduler.load_state_dict(loaded_optim["lr_scheduler"])
+                    log_with_rank(
+                        f"Loaded LR scheduler checkpoint from {optim_dist_path}", rank=self.rank, logger=logger
+                    )
+
         # ── Load model weights ──────────────────────────────────────────────
         if self.should_load_dist_ckpt_model or (self.should_load_hf_model and self.peft_cls is not None):
             model_sd = self._maybe_filter_peft_state_dict(dict(model_sharded_state_dict))
@@ -939,30 +967,6 @@ class MegatronCheckpointManager(BaseCheckpointManager):
             hf_model_path = get_hf_model_checkpoint_path(local_path)
             self._load_model_as_hf_via_bridge(hf_model_path)
             log_with_rank(f"Loaded HF model checkpoint from {hf_model_path} with bridge", rank=self.rank, logger=logger)
-
-        # ── Load optimizer / LR scheduler ───────────────────────────────────
-        if self.should_load_optimizer:
-            optim_sd = self._build_optimizer_state_dict(model_sharded_state_dict, metadata, is_loading=True)
-            loaded_optim = load_dist_checkpointing(
-                sharded_state_dict=optim_sd,
-                ckpt_dir=optim_dist_path,
-            )
-            assert "optimizer" in loaded_optim, (
-                f"Optimizer state dict not found in {loaded_optim.keys()}. "
-                f"Please check the checkpoint file {optim_dist_path}."
-            )
-            self.optimizer.load_state_dict(loaded_optim["optimizer"])
-            log_with_rank(f"Loaded optimizer checkpoint from {optim_dist_path}", rank=self.rank, logger=logger)
-            if self.use_checkpoint_opt_param_scheduler:
-                assert "lr_scheduler" in loaded_optim, (
-                    f"LR scheduler state dict not found in {loaded_optim.keys()}. "
-                    f"Please check the checkpoint file {optim_dist_path}."
-                )
-                if self.lr_scheduler is not None:
-                    self.lr_scheduler.load_state_dict(loaded_optim["lr_scheduler"])
-                    log_with_rank(
-                        f"Loaded LR scheduler checkpoint from {optim_dist_path}", rank=self.rank, logger=logger
-                    )
 
         # ── Load RNG states ─────────────────────────────────────────────────
         if self.should_load_extra:

@@ -56,7 +56,10 @@ def _init_distributed():
             pipeline_model_parallel_size=1,
         )
 
-    yield
+    # A CUDA-enabled PyTorch build still reports the CUDA backend when this
+    # CPU-only suite hides every GPU. Keep checkpoint RNG collection on CPU.
+    with patch("verl.utils.checkpoint.megatron_checkpoint_manager.get_device_name", return_value="cpu"):
+        yield
 
     mpu.destroy_model_parallel()
     if dist.is_initialized():
@@ -655,3 +658,93 @@ class TestModelShardedStateDictNotBuiltUnnecessarily:
 
         mgr.load_checkpoint(ckpt_path)
         mgr.model[0].sharded_state_dict.assert_called_once()
+
+
+@pytest.mark.parametrize("use_dist_checkpointing", [False, True], ids=["hf", "dist"])
+@pytest.mark.parametrize("load_contents", [["model", "optimizer", "extra"], ["model"], ["optimizer"]])
+def test_optimizer_initialization_cannot_overwrite_restored_model(tmp_path, use_dist_checkpointing, load_contents):
+    """MCore Hybrid can rewrite live weights while allocating/loading optimizer state."""
+    events = []
+    expected_weight = torch.tensor([2.5, -3.25])
+    expected_moment = torch.tensor([0.125, -0.375])
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.zeros(2))
+
+        def sharded_state_dict(self, **kwargs):
+            return {"weight": self.weight}
+
+        def load_state_dict(self, state, strict=True):
+            events.append("model")
+            return super().load_state_dict(state, strict=strict)
+
+    model = Model()
+
+    class MutatingOptimizer:
+        state = None
+
+        def sharded_state_dict(self, model_state, *, is_loading=False, **kwargs):
+            assert is_loading is True
+            assert model_state["model"]["weight"] is model.weight
+            events.append("optimizer_metadata")
+            with torch.no_grad():
+                model.weight.fill_(123.0)  # Hybrid dummy_step H2D during metadata construction.
+            return {"allocated": True}
+
+        def load_state_dict(self, state):
+            events.append("optimizer")
+            with torch.no_grad():
+                model.weight.fill_(-456.0)  # Optimizer loading may independently rewrite the model.
+            self.state = {"step": state["step"], "exp_avg": state["exp_avg"].clone()}
+
+    mgr = _make_manager(load_contents=load_contents, use_dist_checkpointing=use_dist_checkpointing)
+    mgr.model = [model]
+    mgr.optimizer = MutatingOptimizer()
+    mgr.use_checkpoint_opt_param_scheduler = True
+    mgr.lr_scheduler.load_state_dict.side_effect = lambda state: events.append("scheduler")
+    _make_v2_layout(str(tmp_path), "model", "optimizer", "extra")
+
+    def fake_load(sharded_state_dict, ckpt_dir):
+        if "optimizer" in sharded_state_dict:
+            return {"optimizer": {"step": 7, "exp_avg": expected_moment}, "lr_scheduler": {"last_epoch": 7}}
+        if "model" in sharded_state_dict:
+            return {"model": {"weight": expected_weight.clone()}}
+        if "rng_state" in sharded_state_dict:
+            return {"rng_state": "saved-rng"}
+        pytest.fail(f"Unexpected checkpoint subtree: {ckpt_dir}")
+
+    with (
+        patch(_PATCH_LOAD_META, return_value=None),
+        patch("verl.utils.checkpoint.megatron_checkpoint_manager.load_dist_checkpointing", side_effect=fake_load),
+        patch.object(
+            mgr,
+            "_load_model_as_hf_via_bridge",
+            side_effect=lambda path: model.load_state_dict({"weight": expected_weight}),
+        ) as bridge_load,
+        patch.object(mgr, "_build_extra_state_dict", return_value={"rng_state": "placeholder"}),
+        patch.object(mgr, "load_rng_states", side_effect=lambda state: events.append("rng")),
+    ):
+        mgr.load_checkpoint(str(tmp_path))
+
+    if "model" in load_contents:
+        torch.testing.assert_close(model.weight.detach(), expected_weight, rtol=0, atol=0)
+        assert events.count("model") == 1
+        assert bridge_load.call_count == int(not use_dist_checkpointing)
+    else:
+        # An optimizer-only restore keeps its existing side effects, without a new model reload.
+        torch.testing.assert_close(model.weight.detach(), torch.full((2,), -456.0), rtol=0, atol=0)
+        assert "model" not in events
+        bridge_load.assert_not_called()
+    if "optimizer" in load_contents:
+        assert mgr.optimizer.state["step"] == 7
+        torch.testing.assert_close(mgr.optimizer.state["exp_avg"], expected_moment, rtol=0, atol=0)
+        mgr.lr_scheduler.load_state_dict.assert_called_once_with({"last_epoch": 7})
+    else:
+        assert mgr.optimizer.state is None
+        assert "optimizer_metadata" not in events
+        assert "optimizer" not in events
+        mgr.lr_scheduler.load_state_dict.assert_not_called()
+    if "extra" in load_contents:
+        assert events[-1] == "rng"
