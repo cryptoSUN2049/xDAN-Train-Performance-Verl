@@ -40,6 +40,8 @@ export VAL_N=1 VAL_BATCH_SIZE=8 VAL_DO_SAMPLE=False
 export MAX_CONCURRENT_SESSIONS=48 ROLLOUT_MAX_RUNNING_REQUESTS=48 AGENT_NUM_WORKERS=8 GATEWAY_COUNT=1
 export TRAJECTORY_TIMEOUT=5400 MODEL_REQUEST_TIMEOUT=3600 MODEL_SDK_MAX_RETRIES=0 HARNESS_TURN_MAX_TOKENS=32768
 export TRAINER_LOGGERS='[console,tensorboard,file,wandb]'
+# Own Modal app so this line's sandboxes can be listed and cleaned without touching other runs.
+export MODAL_APP_NAME=xdan-fusion-group-a
 unset NVTE_FUSED_ATTN NVTE_FLASH_ATTN NVTE_UNFUSED_ATTN WANDB_API_KEY MODAL_TOKEN_ID MODAL_TOKEN_SECRET
 
 RESUME_ARGS=(trainer.resume_mode=disable trainer.resume_from_path=null)
@@ -63,11 +65,14 @@ test -f "$MODEL_PATH/config.json" && test -f "$TRAIN_DATA"
 mkdir -p "$RUN_DIR" "$CHECKPOINT_DIR"
 
 FORWARD_ARGS=()
-for name in CUDA_HOME LIBRARY_PATH CUDA_LIB_PATH NETRC MODAL_PROFILE WANDB_ENTITY WANDB_RUN_ID WANDB_MODE WANDB_RESUME WANDB_DIR RUN_DIR VERL_FILE_LOGGER_PATH MIMOAGENT_RG_PATH; do
+for name in CUDA_HOME LIBRARY_PATH CUDA_LIB_PATH NETRC MODAL_CONFIG_PATH MODAL_PROFILE MODAL_APP_NAME DSH_GATEWAY_PUBLIC_ORIGIN DSH_GATEWAY_ROUTE_DIR WANDB_ENTITY WANDB_RUN_ID WANDB_MODE WANDB_RESUME WANDB_DIR RUN_DIR VERL_FILE_LOGGER_PATH MIMOAGENT_RG_PATH; do
   FORWARD_ARGS+=("+ray_kwargs.ray_init.runtime_env.env_vars.$name=\"${!name}\"")
 done
 cd "$SOURCE"
-exec bash scripts/code/train-dsh-minimal.sh \
+# Official Code entry (the accepted r2 path). Not train-dsh-minimal.sh: its 2-GPU memory defaults
+# (prefill 4096, mamba cache 16, rollout mem 0.6, optimizer overrides) throttled attempt 1 to 23 tok/s.
+# DSH needs only the gateway/Modal variables, forwarded above.
+exec bash scripts/code/train.sh \
   ++actor_rollout_ref.rollout.engine_kwargs.sglang.context_length=65536 \
   actor_rollout_ref.actor.megatron.override_transformer_config.attention_backend=flash \
   ++actor_rollout_ref.ref.megatron.override_transformer_config.attention_backend=flash \

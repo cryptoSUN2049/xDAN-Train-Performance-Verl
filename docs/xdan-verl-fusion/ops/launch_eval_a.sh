@@ -42,17 +42,21 @@ export TENSORBOARD_DIR="$RUN_DIR/tensorboard" AGENT_DEBUG_DIR="$RUN_DIR/dumps"
 export UNI_AGENT_LOG_DIR="$RUN_DIR/trajectories" ROLLOUT_DATA_DIR="$RUN_DIR/rollouts"
 export VALIDATION_DATA_DIR="$RUN_DIR/validation" RESOLVED_CONFIG_PATH="$RUN_DIR/resolved_config.yaml"
 export TRAINER_LOGGERS='[console,tensorboard,file,wandb]'
+# Own Modal app so this line's sandboxes can be listed and cleaned without touching other runs.
+export MODAL_APP_NAME=xdan-fusion-eval-a
 unset NVTE_FUSED_ATTN NVTE_FLASH_ATTN NVTE_UNFUSED_ATTN WANDB_API_KEY MODAL_TOKEN_ID MODAL_TOKEN_SECRET
 test -f "$MODEL_PATH/config.json"
 mkdir -p "$RUN_DIR"
 
 FORWARD_ARGS=()
-for name in CUDA_HOME LIBRARY_PATH CUDA_LIB_PATH NETRC MODAL_PROFILE WANDB_ENTITY WANDB_RUN_ID WANDB_MODE WANDB_RESUME WANDB_DIR RUN_DIR VERL_FILE_LOGGER_PATH MIMOAGENT_RG_PATH; do
+for name in CUDA_HOME LIBRARY_PATH CUDA_LIB_PATH NETRC MODAL_CONFIG_PATH MODAL_PROFILE MODAL_APP_NAME DSH_GATEWAY_PUBLIC_ORIGIN DSH_GATEWAY_ROUTE_DIR WANDB_ENTITY WANDB_RUN_ID WANDB_MODE WANDB_RESUME WANDB_DIR RUN_DIR VERL_FILE_LOGGER_PATH MIMOAGENT_RG_PATH; do
   FORWARD_ARGS+=("+ray_kwargs.ray_init.runtime_env.env_vars.$name=\"${!name}\"")
 done
 cd "$SOURCE"
-# The DSH wrapper forwards the gateway/Modal settings to Ray; it is a no-op for MiMo-Code rollouts.
-exec bash scripts/code/train-dsh-minimal.sh \
+# Official Code entry (the accepted r2 path). Not train-dsh-minimal.sh: its 2-GPU memory defaults
+# (prefill 4096, mamba cache 16, rollout mem 0.6, optimizer overrides) throttled attempt 1 to 23 tok/s.
+# DSH needs only the gateway/Modal variables, forwarded above.
+exec bash scripts/code/train.sh \
   ++actor_rollout_ref.rollout.engine_kwargs.sglang.context_length=65536 \
   actor_rollout_ref.actor.megatron.override_transformer_config.attention_backend=flash \
   ++actor_rollout_ref.ref.megatron.override_transformer_config.attention_backend=flash \
