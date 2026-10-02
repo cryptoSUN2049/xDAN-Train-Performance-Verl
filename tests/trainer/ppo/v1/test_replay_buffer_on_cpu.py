@@ -82,12 +82,21 @@ def _make_rb(
 class FakeRefiller:
     """Produce fresh terminal prompts when the replay buffer requests replacements."""
 
-    def __init__(self, partition_id: str, global_steps: int, sessions: int = 1, rewards: list[float] | None = None):
+    def __init__(
+        self,
+        partition_id: str,
+        global_steps: int,
+        sessions: int = 1,
+        rewards: list[float] | None = None,
+        reward_field: str = "extra_fields",
+    ):
         self.partition_id = partition_id
         self.global_steps = global_steps
         self.sessions = sessions
         # When set, refilled groups carry these per-session rewards so they survive zero-variance filtering.
         self.rewards = rewards
+        # Where the refilled rewards are written; must match the field the DAPO metric reads.
+        self.reward_field = reward_field
         self.calls: list[int] = []
         self.produced_uids: list[str] = []
 
@@ -100,6 +109,7 @@ class FakeRefiller:
                 sessions=self.sessions,
                 global_steps=self.global_steps,
                 rewards=self.rewards,
+                reward_field=self.reward_field,
             )
             for _ in range(num_prompts)
         ]
@@ -920,7 +930,7 @@ def test_dapo_reward_metric_uses_rm_scores_when_reward_is_not_extra_info(tq_init
     mixed = PromptSpec(uid=_uid(), status="finished", sessions=2, rewards=[0.0, 1.0], reward_field="rm_scores")
     _produce(partition_id, [all_same, mixed]).join_and_check()
 
-    refiller = FakeRefiller(partition_id, global_steps=1, sessions=2, rewards=[0.0, 1.0])
+    refiller = FakeRefiller(partition_id, global_steps=1, sessions=2, rewards=[0.0, 1.0], reward_field="rm_scores")
     rb = _make_rb(
         trainer_mode="colocate_async",
         refill_fn=refiller,
@@ -1135,6 +1145,7 @@ def test_dapo_reports_raw_metrics_for_paired_harness_subgroups(tq_init, partitio
         status="finished",
         sessions=4,
         rewards=[0.0, 1.0, 0.0, 1.0],
+        reward_field="rm_scores",
         harnesses=["bashonly-agent", "bashonly-agent", "cc-agent", "cc-agent"],
     )
     _produce(partition_id, [spec]).join_and_check()

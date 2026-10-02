@@ -79,4 +79,5 @@
   - `test_dapo_reward_metric_uses_rm_scores_when_reward_is_not_extra_info`：FakeRefiller 补进来的组只带 `acc`，没有 `rm_scores`；
   - `test_dapo_reports_raw_metrics_for_paired_harness_subgroups`：用 `metric=reward`，但 fixture 只写了 `acc`。
 
-  两者都是 fixture 缺陷，修复放在后续单独的 test 提交里。
+  两者都是 fixture 缺陷，已在随后单独的 `test(replay_buffer)` 提交中修复：给 FakeRefiller 增加 `reward_field` 参数，并在这两个用例里把 reward 写入 `rm_scores`。修复后整份文件 49/49 通过。
+- `_generated_*.yaml`：用 `scripts/generate_trainer_config.sh` 重新生成后，与 cherry-pick 自动合并的结果逐字一致，脚本输出 `All good`，因此没有单独的生成提交。
