@@ -71,9 +71,11 @@ def main() -> None:
     excluded = eval_reservation(args.pool_root)
     reserved = len(excluded)
     for path in args.exclude_names:
+        # Accepts the evaluation deny list format: comments and bare names (no source) are ignored here.
         for line in path.read_text().splitlines():
-            if line.strip():
-                source, task = line.strip().split("/", 1)
+            line = line.strip()
+            if line and not line.startswith("#") and "/" in line:
+                source, task = line.split("/", 1)
                 excluded.add((source, task))
     quotas = {}
     for item in args.quota:
