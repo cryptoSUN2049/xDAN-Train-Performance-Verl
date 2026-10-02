@@ -68,6 +68,14 @@ class HarborEnvironment(DatasetEnvironment):
     def repo_path(self) -> str:
         return self.instance.get("cwd") or "/app"
 
+    def setup_environment(self) -> None:
+        # One harness yaml serves mixed Code + Harbor batches. Its Code-oriented knobs (build-residue
+        # anti-hack cleanup, git history stripping) would corrupt Harbor tasks, whose graded state is the
+        # container itself, so the Harbor contract wins over the yaml for this dataset type.
+        self.anti_hack_cleanup = False
+        self.git_leak_prevention = "none"
+        super().setup_environment()
+
     def _setup_dataset_specific(self) -> None:
         result = self.execute(f"rm -rf {TESTS_DIR} && mkdir -p {VERIFIER_LOG_DIR} /logs/agent", cwd="/", timeout=120)
         if result.get("returncode") != 0:

@@ -119,6 +119,16 @@ def test_preplanted_verdict_is_wiped_before_grading():
     assert extra["error_category"] == harbor.REWARD_MISSING
 
 
+def test_code_oriented_yaml_knobs_do_not_reach_harbor_tasks():
+    sandbox = FakeSandbox()
+    env = _env(sandbox)
+    env.anti_hack_cleanup = True  # what create_from_registry injects from a Code harness yaml
+    env.git_leak_prevention = "strip"
+    env.setup_environment()
+    assert env.anti_hack_cleanup is False and env.git_leak_prevention == "none"
+    assert not any("find" in command or "rm -rf /root/.cache" in command for command, _cwd in sandbox.commands)
+
+
 def test_grading_never_stages_the_agent_repository():
     sandbox = FakeSandbox()
     _env(sandbox).calculate_reward()

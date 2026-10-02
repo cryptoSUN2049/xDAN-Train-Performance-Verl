@@ -1,0 +1,39 @@
+# Group A formal run (Code + Harbor rows in one dataset) x MiMo-Code native loop on Modal.
+# Same as the accepted official Code r2 profile (public Docker Hub task images, no registry secret).
+# Per-row task image and cwd come from the dataset; Harbor rows ignore the Code-only cleanup knobs
+# (recipes/harbor/environment.py).
+use_dataset_env: true
+
+agent:
+  type: mimocode-agent
+  tools:
+    - tool: bash
+      config:
+        timeout: 60
+        max_timeout: 300
+    - tool: read
+    - tool: write
+    - tool: edit
+    - tool: grep
+    - tool: glob
+    - tool: task
+  step_limit: 500
+
+environment:
+  environment_class: modal
+  cwd: /testbed
+  timeout: 300
+  sandbox_timeout: 7200
+  cpu: 2
+  memory: 8192
+  anti_hack_cleanup: true
+  raise_on_transport_error: true
+
+model:
+  model_name: policy
+  protocol: chat
+  model_kwargs:
+    max_tokens: 32768
+    timeout: 3600
+    max_retries: 0
+    temperature: 1.0
