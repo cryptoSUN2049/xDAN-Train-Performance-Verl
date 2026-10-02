@@ -10,7 +10,9 @@ agent:
   payload_path: /workspace/xdan-verl-fusion/payloads/dsh-runtime-0.1.3a2-linux-x86_64.tar.gz
   payload_sha256: e118df1d7c17eddde236b0a94b5e649e070cc18c7e7c6bfe6d6dcca98c9e275f
   run_timeout: 3600
-  max_tokens: 4096
+  # Per-turn output cap must match mini-mimocode-modal.yaml (32768, HARNESS_TURN_MAX_TOKENS). At 4096 the
+  # reasoning model was cut mid-thought: 155/322 DSH sessions in group-a-r1 steps 1-7 ended "max-tokens".
+  max_tokens: 32768
   context_window: 65536
   profile: sdk-minimal
 
@@ -31,7 +33,7 @@ model:
   model_name: policy
   protocol: chat
   model_kwargs:
-    max_tokens: 4096
+    max_tokens: 32768
     timeout: 3600
     max_retries: 0
     temperature: 1.0
