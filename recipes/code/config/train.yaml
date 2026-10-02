@@ -105,7 +105,6 @@ actor_rollout_ref:
       lr_decay_style: constant
     megatron:
       param_offload: true
-      grad_offload: true
       optimizer_offload: true
       tensor_model_parallel_size: 8
       pipeline_model_parallel_size: 1

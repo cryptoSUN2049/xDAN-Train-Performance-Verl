@@ -81,3 +81,8 @@
 
   两者都是 fixture 缺陷，已在随后单独的 `test(replay_buffer)` 提交中修复：给 FakeRefiller 增加 `reward_field` 参数，并在这两个用例里把 reward 写入 `rm_scores`。修复后整份文件 49/49 通过。
 - `_generated_*.yaml`：用 `scripts/generate_trainer_config.sh` 重新生成后，与 cherry-pick 自动合并的结果逐字一致，脚本输出 `All good`，因此没有单独的生成提交。
+
+## 运行时发现（GPU 冒烟，2026-10-02）
+
+- `grad_offload`：上游 #7544（`559c337a`）把这个字段从 `McoreEngineConfig` 删掉了。原因是它本来就是空配置，梯度 buffer 的生命周期一直跟着 `param_offload` 走。但 MiMo 的 5 个 recipe yaml 和 2 个 run 脚本还在设置它，于是 Music 冒烟在构造 `McoreEngineConfig` 时直接报 TypeError。修复方式是从 recipes 里删掉这个字段，运行行为不变。
+- CPU 验证有缺口：`--cfg job` 只检查 Hydra 组装，不会实例化 dataclass。后来补做了一次实例化检查：把 5 个 recipe 中所有带 `_target_` 的节点都实例化一遍。修复后，融合分支的失败集合与 pristine mimo-oss 完全相同，剩下的失败都是检查本身的环境原因，例如本机没有模型路径。所以配置层面没有其他由融合引入的问题。

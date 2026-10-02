@@ -45,7 +45,6 @@ actor_rollout_ref:
       lr: 1e-6
     megatron:
       param_offload: true
-      grad_offload: true
       optimizer_offload: true
       tensor_model_parallel_size: 8
       pipeline_model_parallel_size: 1

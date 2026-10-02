@@ -114,7 +114,6 @@ MAIN_CMD=(
   actor_rollout_ref.actor.optim.lr="${ACTOR_LR}"
   actor_rollout_ref.actor.megatron.param_offload="${MEGATRON_OFFLOAD}"
   actor_rollout_ref.actor.megatron.optimizer_offload="${MEGATRON_OFFLOAD}"
-  actor_rollout_ref.actor.megatron.grad_offload="${MEGATRON_OFFLOAD}"
   actor_rollout_ref.actor.megatron.tensor_model_parallel_size="${ACTOR_TP}"
   actor_rollout_ref.actor.megatron.pipeline_model_parallel_size="${ACTOR_PP}"
   actor_rollout_ref.actor.megatron.context_parallel_size="${ACTOR_CP}"
