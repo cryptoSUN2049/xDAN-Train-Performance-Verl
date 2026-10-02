@@ -55,6 +55,27 @@ def resolve_image(task_dir: Path, environment: dict, image_map: dict | None) -> 
     return entry["image"]
 
 
+def task_identities(name: str) -> set[str]:
+    """Names a task may be listed under: its directory name and, for ``[NNNN__]source__task``, ``source/task``."""
+    identities = {name}
+    parts = name.split("__")
+    if len(parts) >= 2:
+        if parts[0].isdigit():
+            parts = parts[1:]
+        identities.add(f"{parts[0]}/{'__'.join(parts[1:])}")
+        identities.add("__".join(parts[1:]))
+    return identities
+
+
+def load_deny_list(paths: list[Path]) -> set[str]:
+    denied: set[str] = set()
+    for path in paths:
+        denied.update(
+            line.strip() for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")
+        )
+    return denied
+
+
 def tests_tarball(task_dir: Path) -> bytes:
     tests = task_dir / "tests"
     if not (tests / "test.sh").is_file():
@@ -111,12 +132,23 @@ def main() -> None:
     parser.add_argument("--task", action="append", help="default: every task directory under --tasks-root")
     parser.add_argument("--image-map", type=Path, help="build_images.py output for tasks without docker_image")
     parser.add_argument("--skip-unbuilt", action="store_true", help="skip (and report) tasks without an image")
+    parser.add_argument(
+        "--deny-list",
+        type=Path,
+        action="append",
+        default=[],
+        help="evaluation/holdout task identities (one per line); any hit aborts the conversion",
+    )
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
     import pandas as pd
 
     names = args.task or sorted(p.name for p in args.tasks_root.iterdir() if (p / "task.toml").is_file())
+    denied = load_deny_list(args.deny_list)
+    leaked = sorted(name for name in names if task_identities(name) & denied)
+    if leaked:
+        raise SystemExit(f"{len(leaked)} evaluation/holdout tasks in the training input, e.g. {leaked[:5]}")
     image_map = json.loads(args.image_map.read_text()) if args.image_map else None
     rows, skipped = [], {}
     for name in names:
@@ -143,6 +175,8 @@ def main() -> None:
             for row in rows
         ],
         "skipped": skipped,
+        "deny_lists": [str(path) for path in args.deny_list],
+        "denied_identities": len(denied),
     }
     args.out.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(json.dumps({"rows": len(rows), "skipped": len(skipped), "out": str(args.out)}))

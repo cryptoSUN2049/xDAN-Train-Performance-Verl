@@ -39,3 +39,11 @@ def test_audit_requires_nop_zero_and_oracle_one():
     assert not audit_passed({**good, "solved": {"reward": 0.0, "error_category": None}})  # oracle fails
     assert not audit_passed({**good, "untouched": {"reward": 0.0, "error_category": "harbor_reward_missing"}})
     assert not audit_passed({**good, "exception": "boom"})
+
+
+def test_task_identities_cover_numbered_and_pool_names():
+    from scripts.harbor.prepare_data import task_identities
+
+    assert "swe-rebench-v2-fv/theacodes__nox-535" in task_identities("0000__swe-rebench-v2-fv__theacodes__nox-535")
+    assert "terminal-lego-15k/task_00042" in task_identities("terminal-lego-15k__task_00042")
+    assert task_identities("fix-git") == {"fix-git"}
