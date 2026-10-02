@@ -43,8 +43,8 @@ FUSION = {
     "total_steps": 100,
     "goal": "TB2.1 或 Code holdout100（mean@4）至少一项比 SFT 高 ≥3pt，其余不退步；step 50 仍无增益则停",
     "milestones": {
-        10: "首个 checkpoint（之后可断点续训）",
-        20: "评测点 1：需要 SFT 基线对比（step 20 的 checkpoint 会在 step 40 被轮转删除）",
+        5: "首个 checkpoint（之后可断点续训；每 5 步存一次，保留最近 2 个）",
+        25: "评测点 1：对比 SFT 基线（step 25 的 checkpoint 会在 step 35 被轮转删除，需先留存）",
         50: "决策点：对比 SFT，无增益则停",
         100: "第一轮完成 → 第二轮加入 batch1 的 1851 题",
     },
@@ -93,6 +93,18 @@ out["started"] = os.path.getmtime(R + "/started-utc.txt") if os.path.exists(R + 
 sessions = glob.glob(R + "/trajectories/step_*/session-*")
 out["sessions_finished_recent"] = sum(1 for s in sessions if time.time() - os.path.getmtime(s) < 1800)
 out["dsh_failures"] = len(glob.glob(R + "/trajectories/*/*/agent_msgs/dsh-failure-session.jsonl"))
+# DSH turn-end reasons over the last 2 step dirs: "max-tokens" means a turn hit the per-turn output cap
+recent_steps = sorted(glob.glob(R + "/trajectories/step_*"), key=lambda p: int(p.rsplit("_", 1)[1]))[-2:]
+ends = {}
+for d in recent_steps:
+    for f in glob.glob(d + "/*/agent_msgs/dsh-session.jsonl"):
+        with open(f, "rb") as fh:
+            fh.seek(max(0, os.path.getsize(f) - 4096))
+            tail = fh.read().decode("utf-8", "ignore")
+        kinds = re.findall(r'"reason":\{"kind":"([a-z-]+)"\},"turn"', tail)  # turn/end events only
+        if kinds:
+            ends[kinds[-1]] = ends.get(kinds[-1], 0) + 1
+out["dsh_turn_end"] = ends
 log = R + "/training.log"
 text = open(log, errors="ignore").read()[-5_000_000:] if os.path.exists(log) else ""
 out["ungradable"] = text.count("ungradable")
@@ -281,6 +293,9 @@ def fusion_alerts(s: dict, state: dict) -> tuple[list[tuple[str, str, bool]], fl
     new_dsh = s.get("dsh_failures", 0) - state.get("dsh_failures_seen", 0)
     if new_dsh >= 3:
         alerts.append(("dsh", f"新增 DSH 失败 {new_dsh} 条（累计 {s.get('dsh_failures')}）", False))
+    ends = s.get("dsh_turn_end") or {}
+    if sum(ends.values()) >= 16 and ends.get("max-tokens", 0) / sum(ends.values()) > 0.10:
+        alerts.append(("dsh_cap", f"DSH 会话撞单轮输出上限比例偏高：{ends}（修复后应接近 0）", False))
     if s.get("gateway_http") != "401":
         alerts.append(("gateway", f"DSH 网关探测异常：HTTP {s.get('gateway_http')}（预期 401）", False))
     if (s.get("sandboxes") or 0) > SANDBOX_WARN:
@@ -323,6 +338,7 @@ def fusion_summary(s: dict) -> str:
         f"- harness：mimocode {fmt(avg('harness/mimocode-agent/reward_mean'))} / "
         f"DSH {fmt(avg('harness/dsh-sdk/reward_mean'))}\n"
         f"- 被接收的组：Code {code} / Harbor {harbor}\n"
+        f"- DSH 结束原因（近 2 步）：{s.get('dsh_turn_end') or '-'}\n"
         f"- DSH 失败累计 {s.get('dsh_failures')}，ungradable {s.get('ungradable')}，沙箱 {s.get('sandboxes')}"
     )
 
