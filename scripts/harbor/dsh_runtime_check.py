@@ -27,7 +27,14 @@ def _check(instance: dict, config: dict) -> dict:
     agent_config = {k: v for k, v in config["agent"].items() if k != "type"}
     report: dict = {"instance_id": instance["instance_id"], "image": instance["docker_image"]}
     started = time.time()
-    environment = make_dataset_env(instance, **dict(config["environment"]))
+    environment_config = dict(config["environment"])
+    # Same environment construction as recipes/code/mimoagent_runner.py, including the runtime git strip.
+    if instance.get("dataset_type") == "opensource-code" and environment_config.get("git_leak_prevention") == "strip":
+        from recipes.code.code_environment import make_code_dataset_env
+
+        environment = make_code_dataset_env(instance, **environment_config)
+    else:
+        environment = make_dataset_env(instance, **environment_config)
     try:
         environment.setup_environment()
         model = SimpleNamespace(config=SimpleNamespace(model_name="policy", model_kwargs={}))

@@ -22,6 +22,9 @@ environment:
   cpu: 2
   memory: 8192
   anti_hack_cleanup: true
+  # Official Code images keep post-task commits (answer leak); upstream advertises strip but never
+  # calls it, so recipes/code/code_environment.py strips at runtime and verifies the worktree.
+  git_leak_prevention: strip
   raise_on_transport_error: true
 
 model:
