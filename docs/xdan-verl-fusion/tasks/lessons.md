@@ -24,3 +24,5 @@
 - **混合数据集共用一份 harness yaml。** yaml 里只适用于 Code 的开关（反作弊清理、git strip）要在 `HarborEnvironment` 里强制关闭，否则会改坏 Harbor 任务。
 - **选题流水线的 shell 嵌套引号会静默产出空文件。** 结果 stage1 的排除清单为空，batch1 混入了 184 道重复题。现在用 heredoc 写 Python，并在生成后校验行数下限。
 - **`pkill -f <pattern>` 会匹配到自己的 ssh 命令行。** 用 `pgrep -f "^<完整命令前缀>"` 锚定后再 kill。
+- **换启动入口后，必须把 resolved config 和已验收的配置逐项 diff。** 第一次启动经过了 `train-dsh-minimal.sh`，没有察觉它带着 2 卡场景的默认值：prefill 4096、mamba 缓存 16、rollout 显存 0.6。结果吞吐只有 23 token/s，跑了 2 小时只完成 2 题。改回官方 Code 入口后吞吐约 1,050 token/s，单副本。规则：任何正式 run 开跑前，都要和最近一次通过验收的同类 run 做 resolved_config diff，**逐条说明每处差异是有意为之的**。脚本见 `ops/` 下的 diff 片段，模板参考这次对比 r2 的做法。
+- **W&B 的 run id 不能复用。** `WANDB_RESUME=never` 时，被弃用的旧 run id 也会让新 run 启动失败。每次重新开跑都要换一个 id。

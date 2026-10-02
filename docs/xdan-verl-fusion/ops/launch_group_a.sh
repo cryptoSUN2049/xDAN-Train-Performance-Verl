@@ -46,12 +46,12 @@ unset NVTE_FUSED_ATTN NVTE_FLASH_ATTN NVTE_UNFUSED_ATTN WANDB_API_KEY MODAL_TOKE
 
 RESUME_ARGS=(trainer.resume_mode=disable trainer.resume_from_path=null)
 case "$PHASE" in
-  fresh) export WANDB_RUN_ID=ga101 RUN_DIR="$BASE_RUN"
+  fresh) export WANDB_RUN_ID="${WANDB_RUN_ID:-ga102}" RUN_DIR="$BASE_RUN"
          test ! -e "$CHECKPOINT_DIR/global_step_1" ;;
-  preflight) export WANDB_RUN_ID=ga101p RUN_DIR="$BASE_RUN/preflight" BASE_RUN="$BASE_RUN/preflight"
+  preflight) export WANDB_RUN_ID=ga102p RUN_DIR="$BASE_RUN/preflight" BASE_RUN="$BASE_RUN/preflight"
          export PREFLIGHT_ONLY=1 SKIP_CLUSTER_CHECK=1 CUDA_VISIBLE_DEVICES="" ;;
   resume) : "${RESUME_STEP:?}"
-         export WANDB_RUN_ID="ga101r${RESUME_STEP}" RUN_DIR="$BASE_RUN/resume-step${RESUME_STEP}"
+         export WANDB_RUN_ID="ga102r${RESUME_STEP}" RUN_DIR="$BASE_RUN/resume-step${RESUME_STEP}"
          test -d "$CHECKPOINT_DIR/global_step_${RESUME_STEP}/actor"
          RESUME_ARGS=(trainer.resume_mode=resume_path "trainer.resume_from_path=$CHECKPOINT_DIR/global_step_${RESUME_STEP}") ;;
   *) echo "usage: launch_group_a.sh fresh|preflight|resume" >&2; exit 2 ;;
