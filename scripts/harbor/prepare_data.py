@@ -6,7 +6,7 @@ Each row keeps the Code recipe contract (``extra_info.instance_json`` JSON strin
 task instruction), so any Code harness spec can run it. Tests travel inline as a gzipped tarball with
 its SHA256 so the trainer host never needs the task directory at grading time.
 
-usage: prepare_data.py --tasks-root DIR --task NAME [--task NAME ...] --out train.parquet
+usage: prepare_data.py --tasks-root DIR [--task NAME ...] [--image-map map.json [--skip-unbuilt]] --out train.parquet
 """
 
 from __future__ import annotations
@@ -28,12 +28,31 @@ _WORKDIR = re.compile(r"^\s*WORKDIR\s+(\S+)\s*$", re.IGNORECASE | re.MULTILINE)
 
 
 def dockerfile_workdir(task_dir: Path) -> str:
-    """Harbor runs the verifier in the image WORKDIR; task.toml does not carry it."""
+    """Fallback: the image WORKDIR (last one wins), which is where Harbor runs the verifier."""
     dockerfile = task_dir / "environment" / "Dockerfile"
     if not dockerfile.is_file():
         return "/app"
     matches = _WORKDIR.findall(dockerfile.read_text())
     return matches[-1] if matches else "/app"
+
+
+def task_workdir(task_dir: Path, config: dict) -> str:
+    """Prefer the task's declared ``[harbor_runtime] workdir``; fall back to the Dockerfile WORKDIR."""
+    return config.get("harbor_runtime", {}).get("workdir") or dockerfile_workdir(task_dir)
+
+
+def resolve_image(task_dir: Path, environment: dict, image_map: dict | None) -> str:
+    """Prebuilt ``docker_image`` from task.toml, else the Modal-built ``im-`` id for this exact context."""
+    if environment.get("docker_image"):
+        return environment["docker_image"]
+    entry = (image_map or {}).get(task_dir.name) or {}
+    if not entry.get("image"):
+        raise ValueError(f"{task_dir.name}: no prebuilt docker_image and no built image (run build_images.py)")
+    from scripts.harbor.build_images import context_sha256
+
+    if entry.get("env_sha256") != context_sha256(task_dir / "environment"):
+        raise ValueError(f"{task_dir.name}: built image is stale; environment changed since build")
+    return entry["image"]
 
 
 def tests_tarball(task_dir: Path) -> bytes:
@@ -47,12 +66,10 @@ def tests_tarball(task_dir: Path) -> bytes:
     return buffer.getvalue()
 
 
-def task_row(task_dir: Path, index: int) -> dict:
+def task_row(task_dir: Path, index: int, image_map: dict | None = None) -> dict:
     config = tomllib.loads((task_dir / "task.toml").read_text())
     environment = config.get("environment", {})
-    image = environment.get("docker_image")
-    if not image:
-        raise ValueError(f"{task_dir.name}: no prebuilt docker_image (Dockerfile builds are not supported yet)")
+    image = resolve_image(task_dir, environment, image_map)
     instruction = (task_dir / "instruction.md").read_text()
     if not instruction.strip():
         raise ValueError(f"{task_dir.name}: empty instruction.md")
@@ -63,7 +80,7 @@ def task_row(task_dir: Path, index: int) -> dict:
         "dataset_type": DATASET_TYPE,
         "instance_id": task_dir.name,
         "docker_image": image,
-        "cwd": dockerfile_workdir(task_dir),
+        "cwd": task_workdir(task_dir, config),
         "problem_statement": instruction,
         "verifier_timeout_sec": float(config.get("verifier", {}).get("timeout_sec", 900.0)),
         "agent_timeout_sec": float(config.get("agent", {}).get("timeout_sec", 900.0)),
@@ -91,13 +108,26 @@ def task_row(task_dir: Path, index: int) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tasks-root", type=Path, required=True)
-    parser.add_argument("--task", action="append", required=True)
+    parser.add_argument("--task", action="append", help="default: every task directory under --tasks-root")
+    parser.add_argument("--image-map", type=Path, help="build_images.py output for tasks without docker_image")
+    parser.add_argument("--skip-unbuilt", action="store_true", help="skip (and report) tasks without an image")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
     import pandas as pd
 
-    rows = [task_row(args.tasks_root / name, index) for index, name in enumerate(args.task)]
+    names = args.task or sorted(p.name for p in args.tasks_root.iterdir() if (p / "task.toml").is_file())
+    image_map = json.loads(args.image_map.read_text()) if args.image_map else None
+    rows, skipped = [], {}
+    for name in names:
+        try:
+            rows.append(task_row(args.tasks_root / name, len(rows), image_map))
+        except ValueError as error:
+            if not args.skip_unbuilt:
+                raise
+            skipped[name] = str(error)
+    if not rows:
+        raise SystemExit("no rows produced")
     args.out.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_parquet(args.out, index=False)
     manifest = {
@@ -112,9 +142,10 @@ def main() -> None:
             }
             for row in rows
         ],
+        "skipped": skipped,
     }
     args.out.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(json.dumps({"rows": len(rows), "out": str(args.out)}))
+    print(json.dumps({"rows": len(rows), "skipped": len(skipped), "out": str(args.out)}))
 
 
 if __name__ == "__main__":

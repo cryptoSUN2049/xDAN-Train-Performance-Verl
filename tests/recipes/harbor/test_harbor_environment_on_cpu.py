@@ -187,6 +187,29 @@ def test_prepare_data_refuses_tasks_without_prebuilt_image(tmp_path):
         prepare_data.task_row(tmp_path / "needs-build", 0)
 
 
+def test_built_image_map_fills_tasks_without_prebuilt_image(tmp_path):
+    from scripts.harbor.build_images import context_sha256
+
+    task = _make_task(tmp_path, "stage1-task", image=None)
+    image_map = {"stage1-task": {"image": "im-abc123", "env_sha256": context_sha256(task / "environment")}}
+    instance = json.loads(prepare_data.task_row(task, 0, image_map)["extra_info"]["instance_json"])
+    assert instance["docker_image"] == "im-abc123"
+
+
+def test_stale_built_image_is_rejected(tmp_path):
+    task = _make_task(tmp_path, "stage1-task", image=None)
+    image_map = {"stage1-task": {"image": "im-abc123", "env_sha256": "0" * 64}}
+    with pytest.raises(ValueError, match="stale"):
+        prepare_data.task_row(task, 0, image_map)
+
+
+def test_declared_runtime_workdir_wins_over_dockerfile(tmp_path):
+    task = _make_task(tmp_path, "nox", workdir="/app")
+    (task / "task.toml").write_text((task / "task.toml").read_text() + '[harbor_runtime]\nworkdir = "/nox"\n')
+    instance = json.loads(prepare_data.task_row(task, 0)["extra_info"]["instance_json"])
+    assert instance["cwd"] == "/nox"
+
+
 def test_prepared_row_round_trips_through_harbor_environment(tmp_path):
     _make_task(tmp_path, "regex-log")
     instance = json.loads(prepare_data.task_row(tmp_path / "regex-log", 0)["extra_info"]["instance_json"])
