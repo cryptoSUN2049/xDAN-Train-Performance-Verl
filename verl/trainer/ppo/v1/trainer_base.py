@@ -1104,6 +1104,12 @@ class PPOTrainer(ABC):
         else:
             logger.exception(f"Unknown resume mode {self.config.trainer.resume_mode}")
 
+        resume_dataloader = self.config.trainer.get("resume_dataloader", True)
+        if not isinstance(resume_dataloader, bool):
+            raise ValueError("trainer.resume_dataloader must be a boolean")
+        if not resume_dataloader and self.trainer_mode != "sync":
+            raise ValueError("Resetting checkpoint dataloader requires sync mode without in-flight tasks")
+
         # set global step
         self.global_steps = int(global_step_folder.split("global_step_")[-1])
         logger.info(f"Resuming from {global_step_folder}, setting global step to {self.global_steps}")
@@ -1123,7 +1129,9 @@ class PPOTrainer(ABC):
 
         # 4. load dataloader checkpoint
         dataloader_local_path = os.path.join(global_step_folder, "data.pt")
-        if os.path.exists(dataloader_local_path):
+        if not resume_dataloader:
+            logger.info("Explicitly resetting dataloader for a new data phase; model and optimizer were restored")
+        elif os.path.exists(dataloader_local_path):
             dataloader_state_dict = torch.load(dataloader_local_path, weights_only=False)
             self.train_dataloader.load_state_dict(dataloader_state_dict)
         else:
