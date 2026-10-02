@@ -227,10 +227,18 @@ class _HeartbeatRelayResponse(StreamingResponse):
                 await self.client.aclose()
 
 
-def create_app(route_dir, *, transport=None, heartbeat_seconds=15.0):
-    """Create the relay; ``transport`` is injectable for offline contract tests."""
+def create_app(route_dir, *, transport=None, heartbeat_seconds=15.0, upstream_timeout=3600.0):
+    """Create the relay; ``transport`` is injectable for offline contract tests.
+
+    ``upstream_timeout`` bounds the wait for the policy gateway (headers and each chunk). It must cover a
+    full generation under load: the public side stays alive through heartbeats, so a short value here
+    (the old fixed 300 s) cuts DSH turns that queue behind a busy rollout engine. Match the harness model
+    request timeout (MODEL_REQUEST_TIMEOUT).
+    """
     if not math.isfinite(heartbeat_seconds) or not 0 < heartbeat_seconds <= 30:
         raise ValueError("heartbeat interval must be between 0 and 30 seconds")
+    if not math.isfinite(upstream_timeout) or upstream_timeout <= 0:
+        raise ValueError("upstream timeout must be positive")
     directory = Path(route_dir)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -245,7 +253,7 @@ def create_app(route_dir, *, transport=None, heartbeat_seconds=15.0):
             transport=transport,
             trust_env=False,
             follow_redirects=False,
-            timeout=httpx.Timeout(300.0, connect=10.0, write=30.0, pool=10.0),
+            timeout=httpx.Timeout(upstream_timeout, connect=10.0, write=30.0, pool=10.0),
         )
         upstream = None
         try:
@@ -285,10 +293,12 @@ def main():
     parser.add_argument("--route-dir", required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--upstream-timeout", type=float, default=3600.0, help="seconds; match MODEL_REQUEST_TIMEOUT")
     args = parser.parse_args()
     import uvicorn
 
-    uvicorn.run(create_app(args.route_dir), host=args.host, port=args.port, access_log=False)
+    app = create_app(args.route_dir, upstream_timeout=args.upstream_timeout)
+    uvicorn.run(app, host=args.host, port=args.port, access_log=False)
 
 
 if __name__ == "__main__":

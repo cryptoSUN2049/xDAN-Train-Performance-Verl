@@ -419,3 +419,9 @@ def test_unauthorized_stream_never_sends_heartbeat(tmp_path):
         assert response.status_code == 401 and b"keep-alive" not in response.content
 
     asyncio.run(run())
+
+
+def test_upstream_timeout_must_be_positive(tmp_path):
+    with pytest.raises(ValueError, match="upstream timeout"):
+        create_app(tmp_path, upstream_timeout=0)
+    create_app(tmp_path, upstream_timeout=3600.0)
