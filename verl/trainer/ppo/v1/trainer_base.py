@@ -784,7 +784,7 @@ class PPOTrainer(ABC):
         )
         sample_batch_size = train_batch_size // self.parameter_sync_step
 
-        prepare_metrics = self.prepare_step()
+        prepare_metrics = self.prepare_step(prefetch_next_batch=prefetch_next_batch)
 
         metrics_aggregator = MetricsAggregator()
         if prepare_metrics:
@@ -1727,8 +1727,10 @@ class PPOTrainer(ABC):
         batch = self._next_train_batch()
         self._submit_batch_to_rollout(batch)
 
-    def prepare_step(self) -> dict:
-        self._add_batch_to_generate()
+    def prepare_step(self, *, prefetch_next_batch: bool = True) -> dict:
+        """Run per-step preparation; ``prefetch_next_batch=False`` skips submitting the next rollout batch."""
+        if prefetch_next_batch:
+            self._add_batch_to_generate()
         return {}
 
     def _compute_reward_colocate(self, batch: KVBatchMeta, metrics: dict | None = None) -> KVBatchMeta:
@@ -2473,15 +2475,7 @@ class PPOTrainer(ABC):
                 partition_id=batch.partition_id,
                 select_fields=["extra_fields"],
             )
-            extra_fields = spec_data.pop("extra_fields").tolist()
-            # The rollout omits the spec_* stats when the backend does not report
-            # per-request spec-decode stats; leave all three as None in that case.
-            if extra_fields and all(
-                isinstance(extra_field, dict) and "spec_num_draft_tokens" in extra_field for extra_field in extra_fields
-            ):
-                spec_drafts = [extra_field["spec_num_draft_tokens"] for extra_field in extra_fields]
-                spec_accepts = [extra_field["spec_num_accepted_tokens"] for extra_field in extra_fields]
-                spec_verifies = [extra_field["spec_num_verify_steps"] for extra_field in extra_fields]
+            spec_drafts, spec_accepts, spec_verifies = extract_spec_decode_stats(spec_data)
 
         data = data.to_padded_tensor()
         data["token_level_scores"] = data["rm_scores"]

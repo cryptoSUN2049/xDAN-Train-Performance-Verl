@@ -236,8 +236,8 @@ class PPOTrainerSeparateAsync(PPOTrainer):
     def on_sample_end(self):
         self._step_sample_wait_seconds += time.perf_counter() - self._sample_start
 
-    def prepare_step(self) -> dict:
-        metrics = super().prepare_step()
+    def prepare_step(self, *, prefetch_next_batch: bool = True) -> dict:
+        metrics = super().prepare_step(prefetch_next_batch=prefetch_next_batch)
         metrics.update(self._wait_for_sampleable_and_switch())
         return metrics
 

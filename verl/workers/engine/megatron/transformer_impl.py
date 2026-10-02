@@ -523,10 +523,11 @@ class MegatronEngine(BaseEngine):
         if not self.engine_config.use_fused_kernels:
             return
 
-        if not self.engine_config.use_remove_padding or self.is_value_model or self.model_config.mtp.enable:
+        mtp_training = self.model_config.mtp.enable and self.model_config.mtp.enable_train
+        if not self.engine_config.use_remove_padding or self.is_value_model or mtp_training:
             logger.warning_once(
-                "Fused kernels require remove-padding and are not supported for value models or when MTP is enabled "
-                "in Megatron engine; disabling."
+                "Fused kernels require remove-padding and are not supported for value models or when MTP training "
+                "is enabled in Megatron engine; disabling."
             )
             self.engine_config.use_fused_kernels = False
             return

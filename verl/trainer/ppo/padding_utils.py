@@ -86,13 +86,14 @@ def construct_minimal_padding_template(
     eos_token_id: int,
     sequence_length_multiple: int = 1,
 ) -> tuple[dict, dict]:
-    """Construct a text-only padding template.
+    """Construct a minimal text-only padding template with no trainable response tokens.
 
     Args:
         source_td: A single sample dict retrieved from TransferQueue.
         source_tag: The corresponding tag dict for that sample.
         eos_token_id: The EOS token id from the tokenizer.
-        sequence_length_multiple: Required alignment for the total sequence length.
+        sequence_length_multiple: Required alignment for the total sequence length. ``1`` (unspecified)
+            uses ``SYNTHETIC_PADDING_SEQ_LEN``.
 
     Returns:
         A tuple of (template_sample, template_tag) ready for padding.
@@ -106,9 +107,16 @@ def construct_minimal_padding_template(
     # Deep copy the template tag from an existing sample.
     template_tag = copy.deepcopy(source_tag)
 
-    # Build minimal sequence
-    responses = torch.full((1,), eos_token_id, dtype=torch.int64)
-    prompts = torch.full((SYNTHETIC_PADDING_SEQ_LEN - 1,), eos_token_id, dtype=torch.int64)
+    if sequence_length_multiple < 1:
+        raise ValueError(f"sequence_length_multiple must be positive, got {sequence_length_multiple}")
+
+    # An explicit multiple is the exact alignment the engine needs (e.g. 2 * TP * CP for Megatron);
+    # without one, fall back to a length that covers packed TP x CP preprocessing up to 64.
+    seq_len = sequence_length_multiple if sequence_length_multiple > 1 else SYNTHETIC_PADDING_SEQ_LEN
+    prompt_len = seq_len - 1
+    response_len = 1
+    prompts = torch.full((prompt_len,), eos_token_id, dtype=torch.int64)
+    responses = torch.full((response_len,), eos_token_id, dtype=torch.int64)
     input_ids = torch.cat((prompts, responses))
     attention_mask = torch.ones_like(input_ids, dtype=torch.int64)
     response_mask = torch.zeros_like(responses)
@@ -136,12 +144,7 @@ def construct_minimal_padding_template(
         template_sample.pop("routed_experts", None)
 
     # Padding flag is deployed to protect metrics calculation (e.g. response length, score, reward).
-    template_tag.update(
-        is_padding=True,
-        prompt_len=SYNTHETIC_PADDING_SEQ_LEN - 1,
-        response_len=1,
-        seq_len=SYNTHETIC_PADDING_SEQ_LEN,
-    )
+    template_tag.update(is_padding=True, prompt_len=prompt_len, response_len=response_len, seq_len=seq_len)
     return template_sample, template_tag
 
 
@@ -154,10 +157,9 @@ def upsample_batch_to_divisible_size(
     """Append synthetic no-op samples so the batch size becomes divisible by *batch_multiple*.
 
     The synthetic samples reuse the first real sample as a metadata template,
-    but manually construct an aligned ``prompt_len=SYNTHETIC_PADDING_SEQ_LEN - 1 / response_len=1``
-    sequence and zero out reward-related fields so they do not contribute to PPO,
-    entropy, or KL losses.  An ``is_padding`` flag is added in the tag for
-    downstream metrics filtering.
+    but manually construct a minimal aligned sequence and zero out reward-related
+    fields so they do not contribute to PPO, entropy, or KL losses. An
+    ``is_padding`` flag is added in the tag for downstream metrics filtering.
 
     Args:
         batch: The current KVBatchMeta from TransferQueue.
@@ -177,8 +179,12 @@ def upsample_batch_to_divisible_size(
     source_key = batch.keys[source_idx]
     source_td = tq.kv_batch_get(keys=[source_key], partition_id=batch.partition_id)[0]
 
-    # Construct the aligned padding template
-    template_sample, template_tag = construct_minimal_padding_template(source_td, batch.tags[source_idx], eos_token_id)
+    template_sample, template_tag = construct_minimal_padding_template(
+        source_td,
+        batch.tags[source_idx],
+        eos_token_id,
+        sequence_length_multiple=sequence_length_multiple,
+    )
 
     # All padding data use the same uid (also the same trajectory_id 0 but with ascending session_ids)
     # This uid is not identical to any of the actual data, so it won't affect the grpo advantage value.

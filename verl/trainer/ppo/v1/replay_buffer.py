@@ -295,29 +295,55 @@ class ReplayBuffer:
         missing_metric_uids = new_finished_uids - {key.split("_")[0] for key in trajectory_keys}
 
         if trajectory_keys:
+            # extra_fields is fetched for every metric: is_infra and the harness tag live there.
             select_fields = ["extra_fields"]
-            if self.filter_groups_metric == "reward":
+            if use_canonical_reward:
                 select_fields.append("rm_scores")
             data = tq.kv_batch_get(
                 keys=trajectory_keys,
                 partition_id=partition_id,
-                select_fields=["rm_scores"] if use_canonical_reward else ["extra_fields"],
+                select_fields=select_fields,
             )
-            metric_data = list(data["rm_scores"] if use_canonical_reward else data["extra_fields"])
+            extra_fields_data = data.get("extra_fields")
+            extra_fields_list = list(extra_fields_data) if extra_fields_data is not None else []
+            rm_scores_list = list(data.get("rm_scores", []))
         else:
-            metric_data = []
+            extra_fields_list = []
+            rm_scores_list = []
 
-        for key, value in zip(trajectory_keys, metric_data, strict=True):
+        for index, key in enumerate(trajectory_keys):
             uid = key.split("_")[0]
-            if use_canonical_reward:
-                metrics_by_uid[uid].append(float(value.sum().item()))
+            trajectory_tag = self.partitions[partition_id].get(key, {})
+            extra_fields = extra_fields_list[index] if index < len(extra_fields_list) else {}
+            extra_fields = getattr(extra_fields, "data", extra_fields)
+            reward_extra_info = extra_fields.get("reward_extra_info", {}) if isinstance(extra_fields, dict) else {}
+            if use_canonical_reward and index < len(rm_scores_list):
+                # The canonical pre-KL reward wins over a same-named reward_extra_info entry; the latter
+                # is only a fallback for trajectories that carry no rm_scores.
+                score = getattr(rm_scores_list[index], "data", rm_scores_list[index])
+                if hasattr(score, "sum"):
+                    score = score.sum()
+                if hasattr(score, "item"):
+                    score = score.item()
+                metric_value = float(score)
             else:
-                extra_fields = getattr(value, "data", value)
-                reward_extra_info = extra_fields.get("reward_extra_info", {}) if isinstance(extra_fields, dict) else {}
-                if self.filter_groups_metric not in reward_extra_info:
-                    missing_metric_uids.add(uid)
-                else:
-                    metrics_by_uid[uid].append(float(reward_extra_info[self.filter_groups_metric]))
+                metric_value = reward_extra_info.get(self.filter_groups_metric)
+            if metric_value is None:
+                missing_metric_uids.add(uid)
+            else:
+                metric_value = float(metric_value)
+                metrics_by_uid[uid].append(metric_value)
+                infra_by_uid[uid].append(
+                    float(extra_fields.get("is_infra", 0.0)) if isinstance(extra_fields, dict) else 0.0
+                )
+                harness = (
+                    trajectory_tag.get("agent_type")
+                    or trajectory_tag.get("selected_harness")
+                    or reward_extra_info.get("agent_type")
+                    or reward_extra_info.get("selected_harness")
+                    or "unknown"
+                )
+                subgroup_values[(uid, _metric_component(harness))].append(metric_value)
 
         if missing_metric_uids:
             raise RuntimeError(

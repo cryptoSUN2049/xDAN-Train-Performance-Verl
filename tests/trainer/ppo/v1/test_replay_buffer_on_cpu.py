@@ -171,7 +171,11 @@ class RolloutProducer(threading.Thread):
                     if spec.harnesses is not None:
                         tag["agent_type"] = spec.harnesses[session_id]
                     if spec.rewards is not None:
-                        fields["extra_fields"] = {"reward_extra_info": {"acc": float(spec.rewards[session_id])}}
+                        reward = float(spec.rewards[session_id])
+                        if spec.reward_field == "rm_scores":
+                            fields["rm_scores"] = torch.tensor([0.0, 0.0, reward])
+                        else:
+                            fields["extra_fields"] = {"reward_extra_info": {"acc": reward}}
                     if spec.canonical_rewards is not None:
                         reward = spec.canonical_rewards[session_id]
                         fields["rm_scores"] = torch.tensor(
