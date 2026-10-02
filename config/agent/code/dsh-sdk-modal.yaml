@@ -1,0 +1,31 @@
+# Dataset rows select the task image, including the frozen DSH SDK runtime.
+use_dataset_env: true
+
+agent:
+  type: dsh-sdk
+  python_path: /opt/dsh/bin/python
+  run_timeout: 1800
+  max_tokens: 4096
+  context_window: 65536
+  profile: sdk-minimal
+
+environment:
+  environment_class: modal
+  cwd: /testbed
+  timeout: 300
+  sandbox_timeout: 7200
+  cpu: 2
+  memory: 8192
+  anti_hack_cleanup: true
+  git_leak_prevention: strip
+  registry_secret: mimo-dsh-ghcr-20260928
+  raise_on_transport_error: true
+
+model:
+  model_name: policy
+  protocol: chat
+  model_kwargs:
+    temperature: 1.0
+    max_tokens: 4096
+    timeout: 600
+    max_retries: 0

@@ -25,6 +25,7 @@ import hashlib
 import logging
 import os
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -85,8 +86,8 @@ def _mixed_harness_specs() -> list[tuple[str, str]]:
 
     spec_file = Path(spec_path).expanduser().resolve()
     entries = _load_config(spec_file).get("harnesses")
-    if not isinstance(entries, list) or len(entries) < 2:
-        raise ValueError(f"{spec_file}: 'harnesses' must be a list of at least two entries")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError(f"{spec_file}: 'harnesses' must be a list of at least one entry")
     specs: list[tuple[str, str]] = []
     for entry in entries:
         if not isinstance(entry, dict):
@@ -241,6 +242,47 @@ def _notify_agent_finished(session: SessionHandle, *, agent_status: str) -> None
         )
 
 
+@contextmanager
+def _dsh_model_route(model, environment_config, agent_config):
+    """Expose this session's model API only while the remote SDK is running."""
+    origin = os.getenv("DSH_GATEWAY_PUBLIC_ORIGIN")
+    route_dir = os.getenv("DSH_GATEWAY_ROUTE_DIR")
+    if not origin or not route_dir:
+        if environment_config.get("environment_class") == "modal" or origin or route_dir:
+            raise ValueError("DSH on Modal requires DSH_GATEWAY_PUBLIC_ORIGIN and DSH_GATEWAY_ROUTE_DIR")
+        yield
+        return
+    from recipes.code.dsh_gateway_proxy import register_route
+
+    model_kwargs = model.config.model_kwargs
+    original = dict(model_kwargs)
+    with register_route(
+        model_kwargs["base_url"], origin, route_dir, ttl_seconds=int(agent_config.get("run_timeout", 600)) + 60
+    ) as (url, token):
+        model_kwargs.update(base_url=url, api_key=token)
+        try:
+            yield
+        finally:
+            model_kwargs.clear()
+            model_kwargs.update(original)
+
+
+def _validate_code_reward(instance: dict, extra: dict | None) -> None:
+    """A failed verifier invocation is not a negative policy example."""
+    if instance.get("dataset_type") != "opensource-code":
+        return
+    extra = extra or {}
+    rc = extra.get("verifier_returncode")
+    if (
+        extra.get("error_category")
+        or extra.get("transport_error")
+        or type(rc) is not int
+        or rc < 0
+        or rc in {124, 137, 143}
+    ):
+        raise RuntimeError("Code verifier did not produce a valid test verdict; rollout is ungradable")
+
+
 def _run_sync(
     *,
     raw_prompt: Any,
@@ -256,7 +298,12 @@ def _run_sync(
 
     environment_config = dict(config.get("environment") or {})
     environment_config.update(environment_overrides)
-    environment = make_dataset_env(instance, **environment_config)
+    if instance.get("dataset_type") == "opensource-code" and environment_config.get("git_leak_prevention") == "strip":
+        from recipes.code.code_environment import make_code_dataset_env
+
+        environment = make_code_dataset_env(instance, **environment_config)
+    else:
+        environment = make_dataset_env(instance, **environment_config)
     try:
         environment.setup_environment()
         agent_config = dict(config.get("agent") or {})
@@ -264,7 +311,12 @@ def _run_sync(
         agent_config.update(agent_overrides)
         model = _build_model(config, session.base_url or "", agent_type=agent_type)
         _apply_agent_model_override(agent_type, agent_config, model)
-        agent_cls = get_agent_class(agent_type)
+        if agent_type == "dsh-sdk":
+            from recipes.code.dsh_agent import DshSdkAgent
+
+            agent_cls = DshSdkAgent
+        else:
+            agent_cls = get_agent_class(agent_type)
         msg_path = _session_agent_msg_path(session)
         if msg_path is not None:
             agent_config["msg_path"] = msg_path
@@ -275,12 +327,17 @@ def _run_sync(
                 raise ValueError("prompt_prefix must be a string when configured")
             task = f"{prompt_prefix.rstrip()}\n\n--- Task ---\n{task}"
         agent = agent_cls(model, environment.env, **agent_config)
-        status, result = agent.run(task)
+        if agent_type == "dsh-sdk":
+            with _dsh_model_route(model, environment_config, agent_config):
+                status, result = agent.run(task)
+        else:
+            status, result = agent.run(task)
         agent_completed = status == agent_cls.IDLE_STATUS
         if status in _UNGRADABLE_AGENT_STATUSES:
             raise RuntimeError(f"{agent_type} rollout failed with status={status}: {str(result)[-500:]}")
         _notify_agent_finished(session, agent_status=status)
         reward, test_output, reward_extra_info = environment.calculate_reward()
+        _validate_code_reward(instance, reward_extra_info)
         reward_info = {
             **(reward_extra_info or {}),
             "reward": float(reward),

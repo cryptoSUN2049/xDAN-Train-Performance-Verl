@@ -111,6 +111,7 @@ else
   SGLANG_ENABLE_SPEC_V2="${SGLANG_ENABLE_SPEC_V2:-0}"
 fi
 SAVE_FREQ="${SAVE_FREQ:-5}"
+MAX_ACTOR_CKPT_TO_KEEP="${MAX_ACTOR_CKPT_TO_KEEP:-null}"
 TEST_FREQ="${TEST_FREQ:--1}"
 RAY_INIT_ADDRESS="${RAY_INIT_ADDRESS:-auto}"
 CONFIG_PATH="${SCRIPT_DIR}/config"
@@ -293,7 +294,7 @@ MAIN_CMD=(
   trainer.default_local_dir="${CHECKPOINT_DIR}" \
   trainer.rollout_data_dir="${ROLLOUT_DATA_DIR}" \
   trainer.validation_data_dir="${VALIDATION_DATA_DIR}" \
-  trainer.max_actor_ckpt_to_keep=null \
+  trainer.max_actor_ckpt_to_keep="${MAX_ACTOR_CKPT_TO_KEEP}" \
   trainer.max_critic_ckpt_to_keep=null \
   actor_rollout_ref.rollout.prometheus.enable=True \
   actor_rollout_ref.rollout.disable_log_stats=False \
@@ -336,7 +337,9 @@ fi
 VALIDATE_REASONING_ARGS=()
 [ -n "${ROLLOUT_REASONING_EFFORT}" ] && VALIDATE_REASONING_ARGS+=(--reasoning-effort "${ROLLOUT_REASONING_EFFORT}")
 python3 "${SCRIPT_DIR}/validate_resolved_config.py" "${RESOLVED_CONFIG_PATH}" \
+  --trainer-mode "${TRAINER_MODE:-colocate_async}" \
   --save-freq "${SAVE_FREQ}" \
+  --max-actor-ckpt-to-keep "${MAX_ACTOR_CKPT_TO_KEEP}" \
   --checkpoint-dir "${CHECKPOINT_DIR}" \
   --rollout-data-dir "${ROLLOUT_DATA_DIR}" \
   --validation-data-dir "${VALIDATION_DATA_DIR}" \

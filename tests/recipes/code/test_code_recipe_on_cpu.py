@@ -114,7 +114,9 @@ def test_blackbox_launcher_prioritizes_current_verl_checkout():
     assert "actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=full" in launcher
     assert "data.apply_chat_template_kwargs.reasoning_effort" in launcher
     assert "CUDA_DEVICE_MAX_CONNECTIONS" in launcher
-    assert "trainer.max_actor_ckpt_to_keep=null" in launcher
+    # Retention is overridable; the default stays "keep everything" (null).
+    assert 'MAX_ACTOR_CKPT_TO_KEEP="${MAX_ACTOR_CKPT_TO_KEEP:-null}"' in launcher
+    assert 'trainer.max_actor_ckpt_to_keep="${MAX_ACTOR_CKPT_TO_KEEP}"' in launcher
     assert "trainer.max_critic_ckpt_to_keep=null" in launcher
     assert 'trainer.rollout_data_dir="${ROLLOUT_DATA_DIR}"' in launcher
     assert 'trainer.validation_data_dir="${VALIDATION_DATA_DIR}"' in launcher

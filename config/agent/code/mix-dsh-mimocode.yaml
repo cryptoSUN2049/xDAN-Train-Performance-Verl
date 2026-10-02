@@ -1,0 +1,5 @@
+harnesses:
+  - label: dsh-sdk
+    config: ./dsh-sdk-modal.yaml
+  - label: mini-mimocode
+    config: ./mini-mimocode-modal.yaml

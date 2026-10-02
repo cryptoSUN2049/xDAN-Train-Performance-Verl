@@ -37,10 +37,26 @@ def _check(config: dict[str, Any], dotted_path: str, expected: Any) -> None:
         raise ValueError(f"{dotted_path} must resolve to {expected!r}, got {actual!r}")
 
 
+def checkpoint_retention(value: str) -> int | None:
+    if value == "null":
+        return None
+    try:
+        count = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("checkpoint retention must be null or a positive integer") from exc
+    if count < 1:
+        raise argparse.ArgumentTypeError("checkpoint retention must be positive")
+    return count
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
+    parser.add_argument(
+        "--trainer-mode", choices=("sync", "colocate_async", "separate_async"), default="colocate_async"
+    )
     parser.add_argument("--save-freq", type=int, required=True)
+    parser.add_argument("--max-actor-ckpt-to-keep", type=checkpoint_retention, default=None)
     parser.add_argument("--checkpoint-dir", required=True)
     parser.add_argument("--rollout-data-dir", required=True)
     parser.add_argument("--validation-data-dir", required=True)
@@ -69,9 +85,9 @@ def main() -> None:
     expected = {
         "algorithm.rollout_correction.bypass_mode": False,
         "transfer_queue.enable": True,
-        "trainer.v1.trainer_mode": "colocate_async",
+        "trainer.v1.trainer_mode": args.trainer_mode,
         "trainer.save_freq": args.save_freq,
-        "trainer.max_actor_ckpt_to_keep": None,
+        "trainer.max_actor_ckpt_to_keep": args.max_actor_ckpt_to_keep,
         "trainer.max_critic_ckpt_to_keep": None,
         "trainer.default_local_dir": args.checkpoint_dir,
         "trainer.rollout_data_dir": args.rollout_data_dir,
