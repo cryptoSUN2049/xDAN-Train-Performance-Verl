@@ -1,6 +1,8 @@
-# 正式训练规划：Harbor（stage1 + 2000）× MiMo 五域（草案，待批准）
+# 正式训练规划：Harbor（stage1 + 2000）× MiMo 五域
 
 日期：2026-10-02 · 分支 `worktree-xdan-verl-fusion`（镜像分支 `xdan/fusion-a9f2985`）
+
+**状态：用户已于 2026-10-02 批准方案 ③。** A 组首轮跑 100 步，harness 用 mimocode + DSH；B 组交给 baseline 会话。
 
 ## 1. 目标与成功标准
 
