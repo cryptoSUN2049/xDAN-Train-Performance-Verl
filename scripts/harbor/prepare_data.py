@@ -96,7 +96,18 @@ def task_row(task_dir: Path, index: int, image_map: dict | None = None) -> dict:
         raise ValueError(f"{task_dir.name}: empty instruction.md")
     tests = tests_tarball(task_dir)
     if len(tests) > MAX_INLINE_TESTS_BYTES:
-        raise ValueError(f"{task_dir.name}: tests tarball {len(tests)} bytes exceeds inline limit")
+        # Large test suites stay on the shared volume; the environment re-checks this digest at grading.
+        from recipes.harbor.environment import tests_dir_digest
+
+        test_fields = {
+            "task_path": str(task_dir.resolve()),
+            "tests_dir_sha256": tests_dir_digest(str(task_dir / "tests")),
+        }
+    else:
+        test_fields = {
+            "tests_tar_b64": base64.b64encode(tests).decode(),
+            "tests_sha256": hashlib.sha256(tests).hexdigest(),
+        }
     instance = {
         "dataset_type": DATASET_TYPE,
         "instance_id": task_dir.name,
@@ -108,8 +119,7 @@ def task_row(task_dir: Path, index: int, image_map: dict | None = None) -> dict:
         "cpus": environment.get("cpus"),
         "memory_mb": environment.get("memory_mb"),
         "allow_internet": bool(environment.get("allow_internet", True)),
-        "tests_tar_b64": base64.b64encode(tests).decode(),
-        "tests_sha256": hashlib.sha256(tests).hexdigest(),
+        **test_fields,
     }
     return {
         "data_source": DATASET_TYPE,
@@ -168,8 +178,8 @@ def main() -> None:
             {
                 "instance_id": row["extra_info"]["instance_id"],
                 **{
-                    key: json.loads(row["extra_info"]["instance_json"])[key]
-                    for key in ("docker_image", "cwd", "verifier_timeout_sec", "tests_sha256")
+                    key: json.loads(row["extra_info"]["instance_json"]).get(key)
+                    for key in ("docker_image", "cwd", "verifier_timeout_sec", "tests_sha256", "tests_dir_sha256")
                 },
             }
             for row in rows

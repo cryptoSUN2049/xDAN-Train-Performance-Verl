@@ -18,11 +18,13 @@ is reported through ``error_category`` so the runner drops the rollout instead o
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import os
 import tarfile
 import tempfile
+from pathlib import Path
 
 from mimoagent.environments.datasets import DATASET_REGISTRY
 from mimoagent.environments.datasets.base import DatasetEnvironment
@@ -37,6 +39,16 @@ REWARD_MISSING = "harbor_reward_missing"
 REWARD_UNPARSABLE = "harbor_reward_unparsable"
 VERIFIER_EXEC_FAILED = "harbor_verifier_exec_failed"
 TESTS_UNAVAILABLE = "harbor_tests_unavailable"
+
+
+def tests_dir_digest(tests_dir: str) -> str:
+    """Deterministic digest of a tests/ directory (relative path + bytes of every file)."""
+    root = Path(tests_dir)
+    digest = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        digest.update(str(path.relative_to(root)).encode() + b"\0")
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 def parse_reward(reward_json: str | None, reward_txt: str | None) -> float:
@@ -97,7 +109,11 @@ class HarborEnvironment(DatasetEnvironment):
             return target
         task_path = self.instance.get("task_path")
         if task_path and os.path.isdir(os.path.join(task_path, "tests")):
-            return os.path.join(task_path, "tests")
+            tests = os.path.join(task_path, "tests")
+            expected = self.instance.get("tests_dir_sha256")
+            if expected and tests_dir_digest(tests) != expected:
+                raise ValueError("task_path tests changed since the row was prepared")
+            return tests
         raise FileNotFoundError("task carries neither tests_tar_b64 nor a readable task_path/tests")
 
     def _read_remote(self, path: str) -> str | None:

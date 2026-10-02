@@ -220,6 +220,19 @@ def test_declared_runtime_workdir_wins_over_dockerfile(tmp_path):
     assert instance["cwd"] == "/nox"
 
 
+def test_large_tests_stay_on_volume_and_are_digest_checked(tmp_path, monkeypatch):
+    task = _make_task(tmp_path, "big-tests")
+    monkeypatch.setattr(prepare_data, "MAX_INLINE_TESTS_BYTES", 1)
+    instance = json.loads(prepare_data.task_row(task, 0)["extra_info"]["instance_json"])
+    assert "tests_tar_b64" not in instance and instance["task_path"] == str(task.resolve())
+    sandbox = FakeSandbox(verdict={"reward.txt": "1"})
+    reward, _output, extra = harbor.HarborEnvironment(sandbox, instance).calculate_reward()
+    assert reward == 1.0 and "error_category" not in extra
+    (task / "tests" / "test.sh").write_text("#!/bin/bash\necho tampered\n")
+    _reward, _output, extra = harbor.HarborEnvironment(FakeSandbox(), instance).calculate_reward()
+    assert extra["error_category"] == harbor.TESTS_UNAVAILABLE
+
+
 def test_prepared_row_round_trips_through_harbor_environment(tmp_path):
     _make_task(tmp_path, "regex-log")
     instance = json.loads(prepare_data.task_row(tmp_path / "regex-log", 0)["extra_info"]["instance_json"])
