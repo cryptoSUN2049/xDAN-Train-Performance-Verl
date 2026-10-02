@@ -15,6 +15,7 @@
 import inspect
 import logging
 import os
+from contextlib import nullcontext
 from functools import partial
 from typing import Any, Callable, ContextManager, Iterator
 
@@ -1200,6 +1201,7 @@ class MegatronEngineWithLMHead(MegatronEngine):
         logits_processor_func: Callable,
         batch: TensorDict,
         data_format: str,
+        entropy_requires_grad: bool = True,
     ):
         assert logits.shape[:2] == label.shape[:2]
         # avoid non-positive temperature such as padding
@@ -1211,7 +1213,9 @@ class MegatronEngineWithLMHead(MegatronEngine):
         if calculate_sum_pi_squared:
             ret["sum_pi_squared"] = vocab_parallel_sum_pi_squared(logits)
         if calculate_entropy:
-            logits_bak = logits.clone()
+            # Entropy forward is non-destructive, but its backward modifies logits.
+            # Metric-only entropy needs neither that backward nor a policy-logit copy.
+            logits_bak = logits.clone() if entropy_requires_grad else logits
             # # disable the hint until the fused_kernel is optimized for triton>=3.3
             # if torch.distributed.get_rank() == 0:
             #     logger.warning_once(
@@ -1219,13 +1223,14 @@ class MegatronEngineWithLMHead(MegatronEngine):
             #         "`actor_rollout_ref.model.use_fused_kernels=True`. "
             #         "The current `clone()` operation ensures correctness but increases memory usage."
             #     )
-            if self.engine_config.entropy_from_logits_with_chunking:
-                entropy = vocab_parallel_entropy_with_chunking(
-                    logits,
-                    chunk_size=self.engine_config.entropy_from_logits_chunk_size,
-                )
-            else:
-                entropy = vocab_parallel_entropy(logits)
+            with nullcontext() if entropy_requires_grad else torch.no_grad():
+                if self.engine_config.entropy_from_logits_with_chunking:
+                    entropy = vocab_parallel_entropy_with_chunking(
+                        logits,
+                        chunk_size=self.engine_config.entropy_from_logits_chunk_size,
+                    )
+                else:
+                    entropy = vocab_parallel_entropy(logits)
 
             ret["entropy"] = entropy
         else:
@@ -1254,6 +1259,7 @@ class MegatronEngineWithLMHead(MegatronEngine):
                 "installed when the model is initialized."
             )
         calculate_entropy = tu.get_non_tensor_data(batch, key="calculate_entropy", default=False)
+        entropy_requires_grad = tu.get_non_tensor_data(batch, key="entropy_requires_grad", default=True)
         calculate_sum_pi_squared = tu.get_non_tensor_data(batch, key="calculate_sum_pi_squared", default=False)
         distillation_use_topk = tu.get_non_tensor_data(batch, key="distillation_use_topk", default=False)
         distillation_only = tu.get_non_tensor_data(batch, key="distillation_only", default=False)
@@ -1361,6 +1367,7 @@ class MegatronEngineWithLMHead(MegatronEngine):
                 calculate_sum_pi_squared=calculate_sum_pi_squared,
                 calculate_entropy=calculate_entropy,
                 distillation_use_topk=distillation_use_topk,
+                entropy_requires_grad=entropy_requires_grad,
                 distillation_only=distillation_only,
                 logits_processor_func=logits_processor_func,
                 batch=batch,

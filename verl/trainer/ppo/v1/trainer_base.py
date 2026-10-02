@@ -2383,6 +2383,7 @@ class PPOTrainer(ABC):
             )
         extra_info = {
             "calculate_entropy": calculate_entropy,
+            "entropy_requires_grad": self.config.actor_rollout_ref.actor.entropy_coeff != 0.0,
             "distillation_use_topk": distillation_use_topk,
             "distillation_only": distillation_only,
             "global_batch_size": ppo_mini_batch_size,
