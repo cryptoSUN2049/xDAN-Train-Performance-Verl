@@ -78,7 +78,8 @@ flowchart LR
 1. [ ] batch1 审计完成，生成 `batch1/train.parquet`。
 2. [ ] 合并 A 组数据集，并对合并结果再跑一次 deny-list 检查。
 3. [ ] **SFT 基线评测**：TB2.1（镜像已有）、eval-set-v1（需要 build + 审计）、Code holdout100。没有基线就无法判断训练是否成功。
-4. [ ] DSH 网关从 quick tunnel 换成稳定入口：Cloudflare 命名隧道或 RunPod 暴露端口，供多日运行使用。
+4. [x] DSH 网关换成稳定入口：pod 已开放 8000/http，网关监听 0.0.0.0:8000，经 RunPod HTTPS 代理对外 `https://e1vxunispxgtor-8000.proxy.runpod.net`，401/404 探测通过；重启后地址不变。**待验证**：RunPod 代理约 100s 的超时会不会切断长时间的模型请求（在 5 步试跑中观察）。
+   - DSH 接入方式已定（用户 2026-10-02 拍板）：**方案 B，运行时注入 DSH payload**，不为每个任务单独做 DSH 镜像。和 MiMo-Agent 的 `payload_path` 机制、Harbor 的 installed agents 做法一致。5 步试跑时统计注入耗时和失败率；如果有问题，改为 Modal 叠加层缓存镜像。
 5. [ ] 联合配置跑 5 步并验证 resume：实测步时、显存、Modal 并发和成本，再确定 100 步计划。
 6. [ ] 每个 run 结束时做 Modal 成本核算和 sandbox 回收；checkpoint 保留策略（`MAX_ACTOR_CKPT_TO_KEEP=2`）。
 
