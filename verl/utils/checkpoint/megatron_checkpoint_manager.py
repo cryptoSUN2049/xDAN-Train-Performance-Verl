@@ -45,6 +45,7 @@ from verl.utils.megatron_utils import (
 )
 
 from .checkpoint_manager import BaseCheckpointManager
+from .te_optimizer_restore import optimizer_state_to_cpu, stage_te_optimizer_restore
 
 # Setup logging
 logger = logging.getLogger(__file__)
@@ -918,16 +919,22 @@ class MegatronCheckpointManager(BaseCheckpointManager):
         # restoring model weights; RNG restoration must remain last.
         # ── Load optimizer / LR scheduler ───────────────────────────────────
         if self.should_load_optimizer:
-            optim_sd = self._build_optimizer_state_dict(model_sharded_state_dict, metadata, is_loading=True)
-            loaded_optim = load_dist_checkpointing(
-                sharded_state_dict=optim_sd,
-                ckpt_dir=optim_dist_path,
-            )
-            assert "optimizer" in loaded_optim, (
-                f"Optimizer state dict not found in {loaded_optim.keys()}. "
-                f"Please check the checkpoint file {optim_dist_path}."
-            )
-            self.optimizer.load_state_dict(loaded_optim["optimizer"])
+            with stage_te_optimizer_restore(self.optimizer) as cpu_staging:
+                optim_sd = self._build_optimizer_state_dict(model_sharded_state_dict, metadata, is_loading=True)
+                loaded_optim = load_dist_checkpointing(
+                    sharded_state_dict=optim_sd,
+                    ckpt_dir=optim_dist_path,
+                )
+                assert "optimizer" in loaded_optim, (
+                    f"Optimizer state dict not found in {loaded_optim.keys()}. "
+                    f"Please check the checkpoint file {optim_dist_path}."
+                )
+                # Sharded templates may retain the same GPU tensors as the
+                # loaded state. Release them before staging the actual payload.
+                del optim_sd
+                if cpu_staging:
+                    loaded_optim["optimizer"] = optimizer_state_to_cpu(loaded_optim["optimizer"])
+                self.optimizer.load_state_dict(loaded_optim["optimizer"])
             log_with_rank(f"Loaded optimizer checkpoint from {optim_dist_path}", rank=self.rank, logger=logger)
             if self.use_checkpoint_opt_param_scheduler:
                 assert "lr_scheduler" in loaded_optim, (
