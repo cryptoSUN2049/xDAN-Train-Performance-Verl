@@ -20,13 +20,20 @@ ls "$F/pool/terminal-lego-15k-full/"*/runtime-v1 | wc -l
 ls "$F/pool/swe-rebench-v2-fv-full/"*/runtime-v1 | wc -l
 
 log "stage1-used list"
-ls /workspace/verl-uni-agent-harbor-opd-rl/data-pipe-s1/stage1/tasks-train /workspace/verl-uni-agent-harbor-opd-rl/data-pipe-s1/stage1/tasks-validation \
-  | grep "__" | python -c '
-import sys
-for name in sys.stdin:
-    parts = name.strip().split("__")
-    print(f"{parts[1]}/{\"__\".join(parts[2:])}")' | sort -u > "$F/stage1-used.txt"
-wc -l < "$F/stage1-used.txt"
+python - > "$F/stage1-used.txt" <<'EOF'
+import os
+root = "/workspace/verl-uni-agent-harbor-opd-rl/data-pipe-s1/stage1"
+used = set()
+for split in ("tasks-train", "tasks-validation"):
+    for name in os.listdir(os.path.join(root, split)):
+        parts = name.split("__")
+        if len(parts) >= 3:
+            used.add(parts[1] + "/" + "__".join(parts[2:]))
+print("\n".join(sorted(used)))
+EOF
+n_used=$(wc -l < "$F/stage1-used.txt")
+echo "stage1 used: $n_used"
+[ "$n_used" -ge 500 ] || { log "stage1-used list too short ($n_used); refusing to select"; exit 1; }
 
 log "select"
 python scripts/harbor/select_tasks.py --pool-root "$F/pool" \

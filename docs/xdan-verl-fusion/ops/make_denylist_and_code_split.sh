@@ -30,6 +30,26 @@ import pandas as pd
 for info in pd.read_parquet("$T/data-tiers-20261002/code/holdout100.parquet")["extra_info"]:
     print(info["instance_id"])
 EOF
+  echo "# MiMo Cyber / General / Webdev / Music holdouts (baseline line, split-receipt.json alongside)"
+  python - <<EOF
+import json
+import pandas as pd
+paths = [
+    "$T/data-cyber-split-20261002/holdout.parquet",
+    "$T/data-general-split-20261002/holdout.parquet",
+    "$T/data-full-webdev-20261002/runtime/holdout.parquet",
+    "$T/data-music-split-20261002/holdout.parquet",
+]
+for path in paths:
+    for index, info in enumerate(pd.read_parquet(path)["extra_info"]):
+        info = dict(info or {})
+        if not info.get("instance_id") and isinstance(info.get("instance_json"), str):
+            info.update(json.loads(info["instance_json"]))
+        identity = info.get("instance_id") or info.get("src_id") or info.get("index")
+        if identity is None:
+            raise SystemExit(f"{path} row {index} has no identity field")
+        print(identity)
+EOF
 } > "$OUT"
 echo "deny list: $(grep -vc '^#' "$OUT") identities -> $OUT"
 
