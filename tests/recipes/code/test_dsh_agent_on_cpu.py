@@ -187,3 +187,65 @@ def test_agent_rejects_non_session_gateway():
     policy.config.model_kwargs["base_url"] = "https://commercial.example/v1"
     with pytest.raises(ValueError, match="session"):
         DshSdkAgent(policy, Sandbox()).run("fix it")
+
+
+class BareSandbox(Sandbox):
+    """A task image without /opt/dsh: the runtime appears only after the payload is unpacked."""
+
+    def __init__(self):
+        super().__init__()
+        self.runtime_installed = False
+
+    def copy_to(self, src, dest, **kwargs):
+        super().copy_to(src, dest)
+
+    def execute(self, command, *, timeout, **kwargs):
+        if command.startswith("test -x "):
+            self.commands.append(command)
+            return {"reason": "ok", "returncode": 0 if self.runtime_installed else 1, "output": ""}
+        if command.startswith("tar -xzf /tmp/dsh-runtime-"):
+            self.commands.append(command)
+            self.runtime_installed = True
+            return {"reason": "ok", "returncode": 0, "output": ""}
+        return super().execute(command, timeout=timeout, **kwargs)
+
+
+def _payload(tmp_path):
+    path = tmp_path / "dsh-runtime.tar.gz"
+    path.write_bytes(b"portable dsh prefix")
+    return str(path), hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_payload_is_injected_when_the_task_image_lacks_dsh(tmp_path):
+    sandbox = BareSandbox()
+    path, digest = _payload(tmp_path)
+    agent = DshSdkAgent(model(), sandbox, payload_path=path, payload_sha256=digest)
+    assert agent.run("fix it") == ("Completed", "fixed")
+    assert any(dest.startswith("/tmp/dsh-runtime-") for dest in sandbox.files)
+    assert any(command.startswith("tar -xzf /tmp/dsh-runtime-") for command in sandbox.commands)
+
+
+def test_baked_runtime_skips_the_payload(tmp_path):
+    sandbox = Sandbox()
+    path, digest = _payload(tmp_path)
+    DshSdkAgent(model(), sandbox, payload_path=path, payload_sha256=digest).run("fix it")
+    assert not any(dest.startswith("/tmp/dsh-runtime-") for dest in sandbox.files)
+
+
+def test_missing_runtime_without_payload_fails_closed():
+    with pytest.raises(RuntimeError, match="no payload_path"):
+        DshSdkAgent(model(), BareSandbox()).run("fix it")
+
+
+def test_payload_hash_mismatch_is_rejected_before_upload(tmp_path):
+    sandbox = BareSandbox()
+    path, _digest = _payload(tmp_path)
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        DshSdkAgent(model(), sandbox, payload_path=path, payload_sha256="0" * 64).run("fix it")
+    assert not any(dest.startswith("/tmp/dsh-runtime-") for dest in sandbox.files)
+
+
+def test_payload_path_and_hash_must_come_together(tmp_path):
+    path, _digest = _payload(tmp_path)
+    with pytest.raises(ValueError, match="together"):
+        DshSdkAgent(model(), Sandbox(), payload_path=path)

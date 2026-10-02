@@ -1,0 +1,34 @@
+# Harbor task x DSH. The public task image does not contain DSH: DshSdkAgent injects the
+# task-independent /opt/dsh payload (scripts/code/dsh/build_runtime_payload.sh) and the bootstrap
+# re-verifies the runtime identities inside the sandbox. Grading is the task's own tests/test.sh.
+use_dataset_env: true
+
+agent:
+  type: dsh-sdk
+  python_path: /opt/dsh/bin/python
+  payload_path: /workspace/xdan-verl-fusion/payloads/dsh-runtime-0.1.3a2-linux-x86_64.tar.gz
+  payload_sha256: e118df1d7c17eddde236b0a94b5e649e070cc18c7e7c6bfe6d6dcca98c9e275f
+  run_timeout: 1800
+  max_tokens: 4096
+  context_window: 65536
+  profile: sdk-minimal
+
+environment:
+  environment_class: modal
+  timeout: 900
+  sandbox_timeout: 3600
+  cpu: 2
+  memory: 4096
+  anti_hack_cleanup: false
+  git_leak_prevention: none
+  block_network: false
+  raise_on_transport_error: true
+
+model:
+  model_name: policy
+  protocol: chat
+  model_kwargs:
+    temperature: 1.0
+    max_tokens: 4096
+    timeout: 600
+    max_retries: 0

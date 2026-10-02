@@ -97,6 +97,8 @@ class DshSdkAgent:
         context_window: int | None = None,
         profile: str = "sdk-minimal",
         msg_path: Path | None = None,
+        payload_path: str | None = None,
+        payload_sha256: str | None = None,
     ):
         if profile != "sdk-minimal":
             raise ValueError("Only the frozen sdk-minimal profile is supported")
@@ -104,11 +106,37 @@ class DshSdkAgent:
             raise ValueError("DSH needs positive budgets and an absolute interpreter path")
         if context_window is not None and (type(context_window) is not int or context_window <= 0):
             raise ValueError("DSH context_window must be a positive integer")
+        if (payload_path is None) != (payload_sha256 is None):
+            raise ValueError("DSH payload_path and payload_sha256 must be set together")
+        if payload_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", payload_sha256):
+            raise ValueError("DSH payload_sha256 must be a hex SHA256")
         self.model, self.env = model, env
         self.python_path, self.run_timeout, self.max_tokens = python_path, run_timeout, max_tokens
         self.context_window = context_window
         self.msg_path = Path(msg_path) if msg_path else None
+        self.payload_path, self.payload_sha256 = payload_path, payload_sha256
         self.messages = []
+
+    def _ensure_runtime(self) -> None:
+        """Inject the task-independent /opt/dsh payload when the task image does not bake it in.
+
+        Images built with DSH keep working unchanged. The payload is hash-checked before upload, and
+        the bootstrap re-verifies package versions and runtime binary identities inside the sandbox.
+        """
+        present = self.env.execute(f"test -x {shlex.quote(self.python_path)}", timeout=30)
+        if present.get("reason", "ok") == "ok" and present.get("returncode") == 0:
+            return
+        if self.payload_path is None:
+            raise RuntimeError("DSH runtime is not in the task image and no payload_path is configured")
+        digest = hashlib.sha256()
+        with open(self.payload_path, "rb") as stream:
+            for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+                digest.update(chunk)
+        if digest.hexdigest() != self.payload_sha256:
+            raise RuntimeError("DSH payload SHA256 mismatch")
+        remote = f"/tmp/dsh-runtime-{uuid.uuid4().hex}.tar.gz"
+        self.env.copy_to(self.payload_path, remote, timeout=900)
+        self._execute(f"tar -xzf {remote} -C /opt && rm -f {remote} && test -x {shlex.quote(self.python_path)}", 600)
 
     def get_model_query_kwargs(self):
         return {}
@@ -151,6 +179,7 @@ class DshSdkAgent:
         }
         if self.context_window is not None:
             settings["DSH_CONTEXT_WINDOW"] = str(self.context_window)
+        self._ensure_runtime()
         self._execute(f"umask 077; mkdir -m 700 {shlex.quote(root)}", 30)
         with tempfile.TemporaryDirectory(prefix="mimo-dsh-") as directory:
             local = Path(directory)
