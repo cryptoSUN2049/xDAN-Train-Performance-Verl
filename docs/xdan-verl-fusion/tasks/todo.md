@@ -1,40 +1,48 @@
 # xdan-verl-fusion 打通计划（2026-10-02）
 
-目标：在 MiMo fork 的融合分支（`xdan/fusion-a9f2985`）上，把**任务 × harness** 正交地接进来，并用真实 GPU 训练验证整条链路。任务包括 MiMo 五域和 Harbor；harness 包括 MiMo 白盒 harness 和 DSH。
+目标：在 MiMo fork 的融合分支 `xdan/fusion-a9f2985` 上，按**任务 × harness**正交接入，并用真实 GPU 训练把整条链路跑通。
+- 任务：MiMo 五域、Harbor
+- harness：MiMo 白盒、DSH
 
 ## 环境
 
-- GPU：`157.157.221.177:30392`，4×RTX PRO 6000，专供融合线使用；网络卷 `72jdno5cuk`（EUR-IS-1）。
-- venv：从网络卷快照恢复到 `/opt/env_infra/...-6e6cc6b2978a1654`，275 包已校验。
-- 源码目录：`/workspace/xdan-verl-fusion/source-<commit>`，一个 commit 一个目录，不覆盖。
-- 运维脚本：`/workspace/xdan-verl-fusion/ops/`，包括 `fusion-runtime.env`、`start_ray_fusion.sh`、`launch_music_fusion.sh`、`start_dsh_services.sh`、`launch_dsh_fusion.sh`。
-- 注意：`runtime.env` 把 PYTHONPATH 固定在 `source-a2ad9f61`。融合线必须先 source `fusion-runtime.env`，再启动 Ray；PYTHONPATH 由 recipe 的 run 脚本转发给 Ray，launcher 不要再重复转发。
+- GPU 机器：`157.157.221.177:30392`，4×RTX PRO 6000，只给融合线用。网络卷 `72jdno5cuk`（EUR-IS-1）。
+- venv：从卷快照恢复到 `/opt/env_infra/...-6e6cc6b2978a1654`，275 个包已核对。
+- 源码：`/workspace/xdan-verl-fusion/source-<commit>`，每个 commit 一个目录，不覆盖旧的。子模块从 `source-6c702c5b/third_party` 复制。
+- 运维脚本放在 `/workspace/xdan-verl-fusion/ops/`：
+  - `fusion-runtime.env`：SOURCE/PYTHONPATH 覆盖层，当前指向 `source-beb7ad42`
+  - `start_ray_fusion.sh`、`start_dsh_services.sh`（proxy:8766 + cloudflared）
+  - 启动脚本：`launch_{music,dsh,harbor,harbor_dsh}_fusion.sh`
+  - 队列：`gpu_queue_fusion.sh`、`gpu_queue2_fusion.sh`
+- DSH 运行时 payload：`/workspace/xdan-verl-fusion/payloads/dsh-runtime-0.1.3a2-linux-x86_64.tar.gz`
+  - sha256 `e118df1d…`，120MB
+- 注意：`runtime.env` 把 PYTHONPATH 钉在 `source-a2ad9f61`，所以融合线必须先 source `fusion-runtime.env` 再起 Ray。PYTHONPATH 由 recipe 的 run 脚本转发，launcher 里不要重复转发。
 
-## 阶段 A：融合分支 GPU 冒烟（Music，对照 m1）
+## A. 融合分支 GPU 冒烟（Music，对照 m1）✅
 
-- [x] CPU：导入预检、dataclass 实例化检查
-- [x] 修复：`grad_offload` 已被上游删除，recipes 里同步去掉（`877f54d3`）
-- [ ] fresh：1 步，跑完保存 checkpoint
-- [ ] resume：从 step1 恢复，跑到 step2
-- [ ] 与 m1 对比：reward、耗时、显存、DAPO 过滤
+- [x] CPU 导入预检；dataclass 实例化检查
+- [x] 修复 `grad_offload`：上游 #7544 删除了它，recipes 同步删除（`877f54d3`）
+- [x] fresh step1：reward 0.585，grad 0.349，显存 39.7GB，用时 1137s（m1 为 0.244 / 0.392 / 44.1GB / 820s）
+- [x] resume step1→2：模型和 optimizer 都已加载；reward 0.427，grad 0.294，显存 54.4GB，用时 1140s
+- [ ] 跟进：融合分支每步比 m1 慢约 39%，主要慢在 gen（683s vs 508s），原因待查
 
-## 阶段 B：M1b + DSH × mimocode（Code train8，Modal）
+## B. M1b + DSH 接入
 
-- [x] 挑入 5 个 P0 verl 修复：`0bfd0630`、`f0f3fc3f`、`2886da5c`、`52ea0d4e`、`5b0a83f0`
-  - `ced8e69d` 跳过，它依赖未挑入的 `0fab9666`（有界采样器）
-- [x] DSH runtime 移植（`01a2ad9c`），recipes 测试 354 个全部通过
-- [x] CPU preflight 加 dataclass 检查通过
-- [ ] GPU：proxy + tunnel → 2 步混合 harness 训练，每组 2 条 DSH + 2 条 mimocode，按 harness 计算 advantage
-- [ ] 核对：两种 harness 都产出了轨迹和 reward；参数确实更新；Modal sandbox 全部回收
+- [x] 挑入 5 个 P0 verl 修复（`ced8e69d` 依赖 `0fab9666`，跳过）
+- [x] 移植 DSH runtime（`01a2ad9c`）；CPU 预检和 dataclass 检查通过
+- [x] DSH 运行时 payload 注入（`4faed1ec`）：任务镜像里不必再预装 DSH；在 Harbor 镜像上 4/4 启动通过
+- [ ] GPU：Code train8 × {DSH + mimocode}，paired-subgroup，按 harness 分组算 advantage，跑 2 步（队列 1 第三段）
 
-## 阶段 C：Harbor 任务接入（正交）
+## C. Harbor 任务接入（正交）
 
-- [ ] 设计：`HarborEnvironment(DatasetEnvironment)`，注册到 `DATASET_REGISTRY`；reward 用 Harbor 自带的 verifier
-- [ ] 数据转换：Harbor 的 `task.toml`、`instruction.md` 转成 MiMo 数据行
-- [ ] 镜像策略：mimocode 和 DSH 分别怎么准备镜像
-- [ ] 失败即拒收：评分阶段出现 infra 错误时丢弃该轨迹，不计为 0 分
-- [ ] GPU：Harbor 小子集 × {DSH, mimocode}，跑 2 步
+- [x] `HarborEnvironment`（`dataset_type: harbor`），复刻 Harbor verifier 的约定；失败即拒收（`beb7ad42`）
+- [x] 数据转换（只支持带预构建镜像的任务）；oracle 检查 4/4：未改动时 0 分，跑参考答案后 1 分
+- [ ] GPU：Harbor × mimocode，跑 2 步（队列 1 第二段，正在跑）
+- [ ] GPU：Harbor × {DSH + mimocode}，跑 2 步（队列 2）
+- [ ] 正式训练要用不在 TB2.1 里的任务。stage1 的 500 个任务需要从 Dockerfile 构建镜像（Modal `from_dockerfile` → `im-` id），这一步还没做
 
 ## 运行时发现
 
-- `--cfg job` 只检查配置能否组装，不会实例化 dataclass。以后每个新 launcher 都要额外做一次 dataclass 实例化检查。
+- `--cfg job` 只组装配置，不实例化 dataclass；新 launcher 一定要加跑 dataclass 检查。
+- `train-dsh-minimal.sh` 强制要求 DSH gateway；非 DSH 的 harness 走官方 `scripts/code/train.sh`。
+- TB2.1 是对方的评测基准，只用来验证链路，checkpoint 不保留。
