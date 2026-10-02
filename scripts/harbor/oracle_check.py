@@ -3,7 +3,7 @@
 """Policy-free check of Harbor rows on the real sandbox backend.
 
 For each row: start the task environment exactly as training would, grade the untouched task
-(expected 0 with a valid verdict), then run the task's reference solution/solve.sh and grade again
+(expected 0 with a valid verdict), then upload the task's solution/ to /solution, run solve.sh and grade again
 (expected 1). Proves image pull, network access for test.sh, and the verifier contract end to end.
 
 usage: oracle_check.py --data train.parquet --harness config/agent/harbor/mini-mimocode-modal.yaml
@@ -33,8 +33,9 @@ def _check(instance: dict, environment_config: dict, solution: Path | None) -> d
         reward, _output, extra = environment.calculate_reward()
         report["untouched"] = {"reward": reward, "error_category": extra.get("error_category")}
         if solution is not None:
-            environment.env.copy_to(str(solution), "/oracle/solve.sh")
-            run = environment.execute("bash /oracle/solve.sh", cwd=environment.repo_path, timeout=900)
+            # Harbor convention: the whole solution/ directory is mounted at /solution.
+            environment.env.copy_to(str(solution), "/solution")
+            run = environment.execute("bash /solution/solve.sh", cwd=environment.repo_path, timeout=900)
             report["solve_returncode"] = run.get("returncode")
             reward, output, extra = environment.calculate_reward()
             report["solved"] = {"reward": reward, "error_category": extra.get("error_category")}
@@ -65,8 +66,8 @@ def main() -> None:
         instance = json.loads(row["extra_info"]["instance_json"])
         solution = None
         if args.tasks_root is not None:
-            candidate = args.tasks_root / instance["instance_id"] / "solution" / "solve.sh"
-            solution = candidate if candidate.is_file() else None
+            candidate = args.tasks_root / instance["instance_id"] / "solution"
+            solution = candidate if (candidate / "solve.sh").is_file() else None
         report = _check(instance, environment_config, solution)
         print(json.dumps(report), flush=True)
         reports.append(report)
