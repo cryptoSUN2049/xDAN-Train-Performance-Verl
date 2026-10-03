@@ -69,7 +69,9 @@
 待办：
 - [ ] 96K 可行性冒烟：1 步，检查显存（64K 时峰值 48/96 GB）、SGLang KV 压力和单步耗时
 - [ ] 评测口径统一到 96K（含 SFT 基线），保证第一轮和第二轮用同一把尺子
-- [ ] 评测 k 值：TB2.1 主指标 mean@8 × 两个 harness，Code holdout100 mean@4 × 两个 harness（单 checkpoint 约 2.2K 条轨迹，4 卡约 12 小时）
-- [ ] 评测 pod（等用户批准）
+- [x] 评测 k 值（用户 10-03 确认）：TB2.1 主指标 mean@8 × 两个 harness；Code holdout100 mean@4 × 两个 harness
+- [x] 评测 pod：用户自己开 4 卡，由 fusion-eval 会话（worktree `fusion-eval`）负责，契约见 `docs/fusion-eval/tasks/handoff.md` 和 `eval-system-design.md`
+- [x] 64K 对照组（用户 10-03「按你推荐来」）：SFT 和 step 50 各补一组 64K 的 TB2.1，只用 mimocode
+- 判定（预注册）：TB2.1 strict mean@8，分 harness，配对差 ≥ +3pt（10-02 批准的目标），且 95% CI 下界 > 0（训练会话的建议，用户未否决）。step 50 若不达标则按计划停训
 - [ ] batch1 难度 pilot（200 题 × 4 次）→ 决定全量预筛
 - 依据：`docs/xdan-verl-fusion/data-scaling-analysis.md`
