@@ -122,9 +122,10 @@ out["failed_groups"] = sum(int(u) for _, _, u in summ)
 out["fail_reasons"] = sorted(set(re.findall(r"failure_reasons=\['([A-Za-z]+Error)", text[-500_000:])))
 out["ckpts"] = sorted(int(d.rsplit("_", 1)[1]) for d in os.listdir(CK) if d.startswith("global_step_")) if os.path.isdir(CK) else []
 # fusion-eval writes runs/eval-a-<tag>-<harness>-<bench>/ (+ summary.json with strict = failed sessions count as 0);
-# the TB2.1 baseline counts as done only when both harnesses finished.
+# the TB2.1 baseline counts as done only when both harnesses finished. summary.json is written after the eval
+# ends; metrics.jsonl is created empty at launch by verl FileLogger, so its existence proves nothing.
 E = "/workspace/xdan-verl-fusion/runs"
-out["sft_eval_done"] = all(os.path.exists(f"{E}/eval-a-sft-{h}-tb21/metrics.jsonl") for h in ("mimocode", "dsh"))
+out["sft_eval_done"] = all(os.path.exists(f"{E}/eval-a-sft-{h}-tb21/summary.json") for h in ("mimocode", "dsh"))
 def strict(o):
     if isinstance(o, dict):
         for k, v in o.items():
@@ -137,7 +138,7 @@ def strict(o):
 evals = {}
 for d in sorted(glob.glob(E + "/eval-a-*")):
     name = os.path.basename(d)[len("eval-a-"):]
-    if name.startswith("smoke") or not os.path.exists(d + "/metrics.jsonl"):
+    if name.startswith("smoke") or not os.path.exists(d + "/summary.json"):
         continue
     try:
         evals[name] = strict(json.load(open(d + "/summary.json")))
