@@ -178,3 +178,10 @@
 - 对照 mimocode：27.1%，完成率 74%，完成会话平均 0.34。DSH 只要跑完，得分更高（0.55），但约 2/3 的会话没跑完，所以 DSH 的提升空间几乎都在「收敛」上（与 12:00 的估算一致）。
 - 训练进度：step 29。step 25 的 HF 权重已于 12:33 留存（18G）。
 - 待决：评测 spec 写的是「n_failed > 5% 则 INVALID」。DSH 的失败共 8.7%，但其中大部分是超时、撞上限这类模型行为，本来就按 strict 计 0 分。建议只统计基础设施类失败（framework_error、沙箱或 Modal 错误、route_401，合计约 2.2%）。按这个口径，SFT 的 DSH 基线有效。需要用户确认。
+
+### 2026-10-03 16:20 分析：mimocode 的 compact 在当前代码下不会触发；A/B 的对照组有回归均值偏差
+
+- harness-ab-v0 的 ctxA 已跑 42/100：compact 调用 0 次，`<context_usage>` 提示 0 次，num_trajectories 全为 1。
+- 根因（更正 fusion-eval 的初判）：cal_token 是统计 reasoning_content 的，并且 `add_message("assistant", **response)` 存下了完整回复。所以真正的原因更可能是：4 字节/token 的估算对这个 tokenizer 偏低，加上 tools schema 不计入，导致估算值始终低于 0.8×(98304−10000)。需要用 ctxA 轨迹实测「估算值 / 真实 token」的比例来确认。
+- 第二轮前置条件：`_context_usage_footer` 改为使用模型返回的真实 usage（与 wrap_up_hint 一致）；否则在训练中打开 compact 也不会生效。
+- 方法问题：这 25 题是按对照组的「没写完占比」选出来的，对照组的 0.09 天然偏低（回归均值）。ctxA 的 0.167（未配对）基本等同于重跑对照组，不能算作配置效果。已要求在这 25 题上新跑 ctx0（原配置，k=4）作为公平对照。
