@@ -187,3 +187,28 @@
 - 根因（更正 fusion-eval 的初判）：cal_token 是统计 reasoning_content 的，并且 `add_message("assistant", **response)` 存下了完整回复。所以真正的原因更可能是：4 字节/token 的估算对这个 tokenizer 偏低，加上 tools schema 不计入，导致估算值始终低于 0.8×(98304−10000)。需要用 ctxA 轨迹实测「估算值 / 真实 token」的比例来确认。
 - 第二轮前置条件：`_context_usage_footer` 改为使用模型返回的真实 usage（与 wrap_up_hint 一致）；否则在训练中打开 compact 也不会生效。
 - 方法问题：这 25 题是按对照组的「没写完占比」选出来的，对照组的 0.09 天然偏低（回归均值）。ctxA 的 0.167（未配对）基本等同于重跑对照组，不能算作配置效果。已要求在这 25 题上新跑 ctx0（原配置，k=4）作为公平对照。
+
+### 2026-10-03 16:15Z 推送
+
+**进度** `▓▓▓▓▓▓░░░░░░░░░░░░░░` 30/100（30%）
+- 下一节点：step 50：决策点：对比 SFT，无增益则停
+- SFT 基线（TB2.1，两个 harness）：✅ 已完成
+- 已完成评测（strict）：sft-dsh-tb21 0.211，sft-mimocode-tb21 0.271
+- 已保存 checkpoint：[5, 10, 15, 20, 25, 30]
+
+**近 5 步**
+- 步时 43.6 分钟，预计剩余 51 小时
+- reward 0.529，grad 0.247
+- harness：mimocode 0.557 / DSH 0.453
+- 被接收的组：Code 34 / Harbor 6
+- DSH 结束原因（近 2 步）：{'completed': 15, 'context-full': 13}
+- DSH 失败累计 6，ungradable 2，沙箱 48
+
+### 2026-10-03 ~17:00 分析（更正 16:20 条）：footer 会出现，但 SFT 几乎不响应；值得做的是「自动压缩」
+
+- 更正：16:20 条写的「footer 0 次、compact 0 次」来自 main.log，而 main.log 不记录 footer，属于误报。这次改为对 traj.json 里 tool 消息中的 `<context_usage>` 做正则统计。
+- ctxA 已跑完（25 题，k=4，共 100 个会话）：strict 8.0%（选题对照为 9.0%，最终以同批次的 ctx0 配对为准）；completed 57 个（均分 0.14），LimitsExceeded 41 个。
+- 出现过 footer 的会话 33/100，**真正调用 compact 的只有 1/100**；num_trajectories 全部为 1。
+- 估算/真实比例：中位数 0.707（p10 0.51，p90 0.89）。比例低于 0.72 的会话看不到 footer，与 16:20 的推断一致。
+- 结论：「模型主动压缩」这条路在 SFT 上走不通。SFT 没学过对压力信号做出反应，所以把 footer 调得更早出现（ctxC）也没有意义，已取消。更值得做的是**不依赖模型配合的自动压缩**：DSH 可以通过 patch 加入 compaction-basic（阈值触发）；mimocode 目前写明「No automatic threshold trigger」，要在 harness 里加阈值触发。
+- 第二轮如果要训练模型主动 compact，有三个前提：footer 改用真实 usage；训练端支持 num_trajectories > 1；对压缩行为给奖励或做适量 SFT。
