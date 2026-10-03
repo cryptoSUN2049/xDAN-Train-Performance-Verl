@@ -78,3 +78,4 @@
 - [ ] 第二轮上线检查：每个新开关（compact、wrap_up_hint、第三方 harness、DSH patch）先在小规模评测里确认真的被触发（调用次数、提示出现次数、num_trajectories），再比较分数
 - [ ] 第二轮代码前置：mimocode 的 `_context_usage_footer` 改用模型返回的真实 usage（现在用 4 bytes/token 估算，加上 tools schema 不计入，footer 从不触发）
 - [ ] A/B 对照规则：按某组结果选出来的子集，必须在同一批次新跑对照组（ctx0），避免回归均值
+- [ ] 移植 baseline 的 `_purge_unreachable_objects` 到 recipes/code/code_environment.py：strip 后要求 `git fsck --unreachable --no-reflogs` 为 0，否则 fail closed（partial clone 的 .promisor 包会留下未来提交，见 format-code-task-002295）

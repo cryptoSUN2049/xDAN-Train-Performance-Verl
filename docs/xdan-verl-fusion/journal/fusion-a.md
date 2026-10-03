@@ -225,3 +225,9 @@
 - 方法：`scripts/harbor/git_leak_check.py` 用 Modal 临时沙箱（独立 app `xdan-fusion-leakcheck`，查完立即销毁）启动已构建的镜像，在任务 cwd 里查询：HEAD 之后可达的提交（`rev-list --all --not HEAD`）、refs、reflog，以及 `fsck --unreachable` 找到的游离提交。
 - 结果：batch1 的 swe-rebench 抽查 11 个，stage1 抽查 6 个（2 个 swe、4 个 lego），**全部为 0 泄漏**：HEAD 之后 0 个提交，没有 ref，reflog 为 0，游离提交为 0。terminal-lego 的 cwd（/app）不是 git 仓库。swe-rebench V2 的镜像本身已经把历史截断在 base。
 - 尚未覆盖：terminal-lego 与 TB2.1 的内容级重叠（黑名单只按 id）。baseline 线做的 8-gram 检查对 eval-denylist 和 holdout 命中 0；与 MiMo Code train 有 4 个近似重复，属于训练集内部重复，不是污染。
+
+### 2026-10-03 ~19:05 事故（已拦截）：Code 题 format-code-task-002295 在 strip 后仍会泄漏答案
+
+- 来源：baseline 线对 620 个未截断的 Code 镜像跑全量 strip + fsck，只有这一题清不干净。它的镜像是 partial clone，历史放在 `.promisor` 包里，上游 gc 不会删除。strip 之后，25,728 个未来提交从 refs 已不可达，但仍能用 `git cat-file` 读出来。祖先断言和时间戳校验都发现不了，只有 `fsck --unreachable --no-reflogs` 能查出。
+- 我们的暴露情况：这道题在 Code 2598、train-r1 和 train-r2-a/b 中都有（数据集 index 804），不在 holdout100 中。ga103 和 attempt3 的轨迹里**从未抽到过这道题**（0 个会话），所以没有被利用过。
+- 处理：生成 `data/group-a-r2/train-r2-{a1,b1}.parquet`（各去掉 1 行，附带 manifest），r2 改用这两个文件；新增 `data/code-leak-exclude.txt`。待办：把 baseline 的 `_purge_unreachable_objects` 移植进我们的 Code 环境（删掉 promisor 标记，再 gc --prune=now，要求 fsck unreachable 为 0，否则失败即拒），第二轮之后启用。
