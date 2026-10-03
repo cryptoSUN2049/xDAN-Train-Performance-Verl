@@ -59,3 +59,17 @@
 - 冒烟时 GPU 平均利用率只有 50–66%，26–43% 的时间在空闲（在等 Modal 沙箱）。正式训练要提高并发轨迹数，或改用 separate_async。
 - 单步跑 2 题 × 4 条，很容易整组得分相同，导致 grad 为 0。正式训练前要打开 DAPO 过滤，并把 batch 加大。
 - Harbor 的参考解依赖 `/solution` 目录下的兄弟文件，oracle 必须把整个 `solution/` 上传。
+
+## E. 第二轮决策与待办（2026-10-03）
+
+用户已定：
+- 两个 harness（mimocode、DSH）都是目标：训练混合保留两者，评测两者都要报。
+- 第二轮上下文升到 96K：MAXLEN 98304、RESPONSE 94208、PPO_MAX_TOKEN_LEN_PER_GPU 98304、SGLang context_length 98304、DSH context_window 98304；单轮输出上限保持 32768。
+
+待办：
+- [ ] 96K 可行性冒烟：1 步，检查显存（64K 时峰值 48/96 GB）、SGLang KV 压力和单步耗时
+- [ ] 评测口径统一到 96K（含 SFT 基线），保证第一轮和第二轮用同一把尺子
+- [ ] 评测 k 值：TB2.1 主指标 mean@8 × 两个 harness，Code holdout100 mean@4 × 两个 harness（单 checkpoint 约 2.2K 条轨迹，4 卡约 12 小时）
+- [ ] 评测 pod（等用户批准）
+- [ ] batch1 难度 pilot（200 题 × 4 次）→ 决定全量预筛
+- 依据：`docs/xdan-verl-fusion/data-scaling-analysis.md`
