@@ -29,6 +29,8 @@ from pathlib import Path
 HERE = Path(__file__).parent
 STATE = HERE / "state.json"
 LOG = HERE / "watchdog.log"
+SNAPSHOTS = HERE / "snapshots.jsonl"
+JOURNAL_DIR = HERE.parent.parent / "journal"
 RECIPIENT_OPEN_ID = "ou_c09fa2f0ded5799efe08aaf4e750e113"
 HOST = "root@157.157.221.177"
 REPEAT_SECONDS = 3600
@@ -270,9 +272,28 @@ def bar(done: float, total: float, width: int = 20) -> str:
     return f"`{'▓' * filled}{'░' * (width - filled)}` {done:g}/{total:g}（{frac:.0%}）"
 
 
+def journal(target: dict, body: str, icon: str = "") -> None:
+    """L2 run journal: every push is appended verbatim to docs/xdan-verl-fusion/journal/<target>.md."""
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%MZ")
+    JOURNAL_DIR.mkdir(exist_ok=True)
+    with (JOURNAL_DIR / f"{target['name']}.md").open("a") as stream:
+        stream.write(f"\n### {stamp} {icon}推送\n\n{body}\n")
+
+
+def record_snapshot(name: str, data: dict) -> None:
+    """L1 raw snapshot per tick (local only, gitignored)."""
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with SNAPSHOTS.open("a") as stream:
+        stream.write(json.dumps({"utc": stamp, "target": name, **data}, ensure_ascii=False) + "\n")
+
+
 def notify(target: dict, body: str, send: bool, *, icon: str = "") -> None:
     markdown = f"## {icon}{target['title']}\n**目标**：{target['goal']}\n\n{body}"
     log(f"NOTIFY [{target['name']}] " + body.replace("\n", " | ")[:600])
+    try:
+        journal(target, body, icon)
+    except OSError as error:
+        log(f"WARN journal write failed: {error}")
     if not send:
         return
     result = subprocess.run(
@@ -467,6 +488,25 @@ def tick_fusion(state: dict, run: str, send: bool, auto_stop: bool) -> str:
         notify(target, fusion_summary(snapshot), send)
         state["summary_step"] = done
     state["dsh_failures_seen"] = snapshot.get("dsh_failures", 0)
+    last = (snapshot.get("steps") or [{}])[-1]
+    record_snapshot(
+        "fusion-a",
+        {
+            "step": done,
+            "idle_min": round(idle_min, 1),
+            "last_step": last,
+            "session_failures": sum(snapshot.get("session_failures") or []),
+            "session_totals": sum(snapshot.get("session_totals") or []),
+            "dsh_failures": snapshot.get("dsh_failures"),
+            "dsh_turn_end": snapshot.get("dsh_turn_end"),
+            "sandboxes": snapshot.get("sandboxes"),
+            "gateway_http": snapshot.get("gateway_http"),
+            "ckpts": snapshot.get("ckpts"),
+            "sft_eval_done": snapshot.get("sft_eval_done"),
+            "evals": snapshot.get("evals"),
+            "alerts": [a[0] for a in alerts],
+        },
+    )
     fails = f"{sum(snapshot.get('session_failures') or [])}/{sum(snapshot.get('session_totals') or [])}"
     return (
         f"steps={done} idle={idle_min:.0f}m sandboxes={snapshot.get('sandboxes')} dsh_fail={snapshot.get('dsh_failures')} "
@@ -567,6 +607,16 @@ def tick_baseline(state: dict, send: bool) -> str:
     if time.time() - state.get("heartbeat", 0) > target["heartbeat_seconds"]:
         notify(target, "**定时进度**\n\n" + baseline_progress(s), send)
         state["heartbeat"] = time.time()
+    record_snapshot(
+        "baseline",
+        {
+            "records": len(records),
+            "queue_alive": s.get("queue_alive"),
+            "active": act,
+            "gpu_util": s.get("gpu_util"),
+            "alerts": [k for k, _ in alerts],
+        },
+    )
     return f"records={len(records)} queue_alive={s.get('queue_alive')} active={(act or {}).get('dir')} alerts={alerts}"
 
 
