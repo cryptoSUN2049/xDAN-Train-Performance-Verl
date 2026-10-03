@@ -145,6 +145,15 @@ for d in sorted(glob.glob(E + "/eval-a-*")):
     except Exception:
         evals[name] = None
 out["evals"] = evals
+# paired comparisons vs SFT written by fusion-eval (one row per model_tag x harness x bench; -64k tags are controls)
+pairs = []
+if os.path.exists(E + "/eval-pairs.jsonl"):
+    for line in open(E + "/eval-pairs.jsonl"):
+        try:
+            pairs.append(json.loads(line))
+        except ValueError:
+            pass
+out["pairs"] = pairs
 origin = open("/workspace/xdan-verl-fusion/runs/dsh-gateway-runpod/public-origin.txt").read().strip()
 probe = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "POST",
     "-H", "Content-Type: application/json", "-d", "{}", "--max-time", "15",
@@ -332,6 +341,32 @@ def fusion_alerts(s: dict, state: dict) -> tuple[list[tuple[str, str, bool]], fl
     return alerts, idle_min
 
 
+def verdicts(pairs: list[dict]) -> dict[str, str]:
+    """Pre-registered rule (spec fusion-a-v1): per harness, TB2.1 strict mean@8 paired diff vs SFT >= +3pt
+    and 95% CI lower bound > 0. Returns {model_tag: markdown} once both harnesses have a tb21 row."""
+    out: dict[str, str] = {}
+    for tag in ("step25", "step50", "step100"):
+        rows = {r.get("harness"): r for r in pairs if r.get("model_tag") == tag and r.get("bench") == "tb21"}
+        if not {"mimocode", "dsh"} <= set(rows):
+            continue
+        lines, passed = [], []
+        for h in ("mimocode", "dsh"):
+            r = rows[h]
+            diff, ci = r.get("diff"), r.get("ci95")
+            lo = ci[0] if isinstance(ci, (list, tuple)) and ci else None
+            ok = diff is not None and lo is not None and diff >= 0.03 and lo > 0
+            passed.append(ok)
+            lines.append(
+                f"- {h}：配对差 {diff * 100:+.1f}pt，95% CI [{lo * 100:+.1f}, {ci[1] * 100:+.1f}]，"
+                f"胜/负 {r.get('wins')}/{r.get('losses')} → {'✅ 达标' if ok else '❌ 未达标'}"
+                if diff is not None and lo is not None
+                else f"- {h}：数据不完整 {r}"
+            )
+        verdict = "两个 harness 都达标" if all(passed) else ("部分达标" if any(passed) else "均未达标")
+        out[tag] = f"**{tag} vs SFT（TB2.1 strict mean@8）：{verdict}**\n" + "\n".join(lines)
+    return out
+
+
 def evals_text(evals: dict | None) -> str:
     if not evals:
         return "无"
@@ -409,6 +444,12 @@ def tick_fusion(state: dict, run: str, send: bool, auto_stop: bool) -> str:
                 target, f"**到达节点 step {m}**：{target['milestones'][m]}\n\n{fusion_progress(snapshot, done)}", send
             )
             state["milestone_seen"] = m
+    sent = state.setdefault("verdicts_sent", [])
+    for tag, text in verdicts(snapshot.get("pairs") or []).items():
+        if tag not in sent:
+            rule = "判定规则（预注册）：每个 harness 配对差 ≥ +3pt 且 95% CI 下界 > 0；step 50 未达标按计划停训，由用户拍板。"
+            notify(target, f"{text}\n\n{rule}", send, icon="🎯 ")
+            sent.append(tag)
     if done and done % SUMMARY_EVERY == 0 and state.get("summary_step") != done:
         notify(target, fusion_summary(snapshot), send)
         state["summary_step"] = done
