@@ -1,11 +1,16 @@
 import hashlib
 import json
+import os
+import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
+import yaml
 
-from recipes.code.dsh_agent import DshSdkAgent, validate_result
+from recipes.code import dsh_runner
+from recipes.code.dsh_agent import _EMPTY_PATCHES_HASH, DshSdkAgent, validate_result
 
 TRACE = b'{"type":"turn/end","data":{"reason":{"kind":"completed"}}}\n'
 
@@ -249,3 +254,139 @@ def test_payload_path_and_hash_must_come_together(tmp_path):
     path, _digest = _payload(tmp_path)
     with pytest.raises(ValueError, match="together"):
         DshSdkAgent(model(), Sandbox(), payload_path=path)
+
+
+class PatchSandbox(Sandbox):
+    """Emulates the runner side: decode DSH_UA_PATCHES and hash the uploaded patch bytes."""
+
+    def execute(self, command, *, timeout, **kwargs):
+        response = super().execute(command, timeout=timeout, **kwargs)
+        if "bootstrap.py" in command:
+            root = next(Path(p).parent.as_posix() for p in self.files if p.endswith("/input.json"))
+            settings = json.loads(self.files[root + "/env.json"])
+            with mock.patch.dict(os.environ, {"DSH_UA_PATCHES": settings["DSH_UA_PATCHES"]}):
+                self.patches = dsh_runner._patches_from_env()
+            reported = json.loads(self.files[root + "/result.json"])
+            reported["patches_sha256"] = dsh_runner._patches_digest([self.files[p] for p in self.patches])
+            self.files[root + "/result.json"] = json.dumps(reported).encode()
+        return response
+
+
+def _patch(tmp_path, name, content):
+    path = tmp_path / name
+    path.write_text(content)
+    return str(path)
+
+
+def _settings(sandbox):
+    return json.loads(next(value for key, value in sandbox.files.items() if key.endswith("/env.json")))
+
+
+def test_no_patches_keeps_env_and_identity_unchanged():
+    sandbox = PatchSandbox()
+    agent = DshSdkAgent(model(), sandbox, patches=[])
+    assert agent.patches_sha256 == _EMPTY_PATCHES_HASH == "sha256:" + hashlib.sha256(b"[]").hexdigest()
+    assert agent.run("fix it") == ("Completed", "fixed")
+    assert _settings(sandbox)["DSH_UA_PATCHES"] == "[]"
+    assert not any("/patch-" in dest for dest in sandbox.files)
+    assert DshSdkAgent(model(), Sandbox()).patches_sha256 == _EMPTY_PATCHES_HASH
+
+
+def test_patches_are_uploaded_in_order_and_round_trip_through_the_runner(tmp_path):
+    first = _patch(tmp_path, "b.yml", "- insert: [{id: one, name: x}]\n")
+    second = _patch(tmp_path, "a.yaml", "- insert: [{id: two, name: y}]\n")
+    sandbox = PatchSandbox()
+    agent = DshSdkAgent(model(), sandbox, patches=[first, second])
+    assert agent.run("fix it") == ("Completed", "fixed")
+    remote = json.loads(_settings(sandbox)["DSH_UA_PATCHES"])
+    root = remote[0].rsplit("/", 1)[0]
+    assert remote == [root + "/patch-00.yml", root + "/patch-01.yml"]
+    assert root.startswith("/tmp/mimo-dsh-sdk-") and root + "/env.json" in sandbox.files
+    assert [sandbox.files[path] for path in remote] == [Path(first).read_bytes(), Path(second).read_bytes()]
+    assert sandbox.patches == tuple(remote)
+
+
+def test_patch_hash_is_deterministic_and_content_sensitive(tmp_path):
+    first = _patch(tmp_path, "one.yml", "- insert: []\n")
+    second = _patch(tmp_path, "two.yml", "- id: llm\n")
+    digest = DshSdkAgent(model(), Sandbox(), patches=[first, second]).patches_sha256
+    assert digest == DshSdkAgent(model(), Sandbox(), patches=[first, second]).patches_sha256
+    assert digest != DshSdkAgent(model(), Sandbox(), patches=[second, first]).patches_sha256
+    assert digest != _EMPTY_PATCHES_HASH
+    Path(second).write_text("- id: llm-changed\n")
+    assert digest != DshSdkAgent(model(), Sandbox(), patches=[first, second]).patches_sha256
+
+
+def test_real_runner_hashes_the_patch_files_it_passes_to_the_sdk(monkeypatch, tmp_path):
+    paths = [_patch(tmp_path, "patch-00.yml", "- insert: []\n"), _patch(tmp_path, "patch-01.yml", "- id: llm\n")]
+    seen = {}
+
+    class Harness:
+        def __init__(self, config):
+            seen.update(config)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def run(self, prompt, *, session_id):
+            return SimpleNamespace(session_id=session_id, events=[{}], finish_reason="completed", final_response="ok")
+
+    sdk = SimpleNamespace(DeepSeekHarness=Harness, DeepSeekHarnessConfig=lambda **kwargs: kwargs)
+    monkeypatch.setitem(sys.modules, "deepseek_harness", sdk)
+    monkeypatch.setenv("DSH_UA_PATCHES", json.dumps(paths))
+    monkeypatch.setenv("DSH_UA_TRACE_PATH", str(tmp_path / "t.jsonl"))
+    monkeypatch.setenv("DSH_UA_KEEP_TRACE", "1")
+    for name in ("DSH_UA_MODEL", "DSH_UA_PROVIDER", "DSH_UA_CWD", "DSH_UA_HOME", "DSH_UA_BASE_URL", "DSH_UA_API_KEY"):
+        monkeypatch.setenv(name, "x")
+    (tmp_path / "input.json").write_text(json.dumps({"prompt": "p", "session_id": "s"}))
+    output = dsh_runner.run(tmp_path / "input.json", tmp_path / "result.json")
+    assert seen["patches"] == tuple(paths)
+    assert output["patches_sha256"] == DshSdkAgent(model(), Sandbox(), patches=paths).patches_sha256
+
+
+def test_runner_hash_mismatch_fails_closed(tmp_path):
+    path = _patch(tmp_path, "p.yml", "- insert: []\n")
+    with pytest.raises(RuntimeError, match="patches_sha256"):
+        DshSdkAgent(model(), Sandbox(), patches=[path]).run("fix it")  # this fake runner reports the empty stack
+
+
+def test_repo_relative_patch_matches_the_shipped_profile(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    repo = Path(__file__).resolve().parents[3]
+    base = yaml.safe_load((repo / "config/agent/mixed/dsh-sdk-modal.yaml").read_text())
+    compact = yaml.safe_load((repo / "config/agent/mixed/dsh-sdk-modal-compact.yaml").read_text())
+    patches = compact["agent"].pop("patches")
+    assert compact == base and patches == ["config/agent/dsh/patches/compaction.patch.yml"]
+    agent = DshSdkAgent(model(), Sandbox(), patches=patches)
+    assert agent.patches == [(repo / patches[0]).read_bytes()]
+    rows = yaml.safe_load(agent.patches[0])[0]["insert"]
+    assert [row["id"] for row in rows] == ["token-meter", "tool-result-pruner", "compaction-basic"]
+
+
+def test_expected_patch_hash_is_enforced(tmp_path):
+    path = _patch(tmp_path, "p.yml", "- insert: []\n")
+    digest = DshSdkAgent(model(), Sandbox(), patches=[path]).patches_sha256
+    DshSdkAgent(model(), Sandbox(), patches=[path], patches_sha256=digest)
+    DshSdkAgent(model(), Sandbox(), patches_sha256=_EMPTY_PATCHES_HASH)
+    with pytest.raises(ValueError, match="patches_sha256 mismatch"):
+        DshSdkAgent(model(), Sandbox(), patches=[path], patches_sha256=_EMPTY_PATCHES_HASH)
+
+
+@pytest.mark.parametrize(
+    ("make", "match"),
+    [
+        (lambda tmp: [str(tmp / "missing.yml")], "does not exist"),
+        (lambda tmp: [_patch(tmp, "p.yml", "[]\n")] * 2, "repeat"),
+        (lambda tmp: [_patch(tmp, "p.json", "[]\n")], r"\.yml or \.yaml"),
+        (lambda tmp: "config/agent/dsh/patches/compaction.patch.yml", "list of paths"),
+        (lambda tmp: [""], "list of paths"),
+    ],
+)
+def test_invalid_patches_fail_before_sandbox_execution(tmp_path, make, match):
+    sandbox = Sandbox()
+    with pytest.raises(ValueError, match=match):
+        DshSdkAgent(model(), sandbox, patches=make(tmp_path))
+    assert not sandbox.commands and not sandbox.files

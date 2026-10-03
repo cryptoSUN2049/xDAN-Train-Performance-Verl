@@ -53,10 +53,14 @@ def _patches_from_env() -> tuple[str, ...]:
     return tuple(value)
 
 
-def _patches_digest(patches: tuple[str, ...]) -> str:
-    """Return a non-secret identity for the ordered profile patch stack."""
-    encoded = json.dumps(list(patches), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+def _patches_digest(contents: list[bytes]) -> str:
+    """Return a non-secret identity for the ordered profile patch stack.
+
+    It hashes file contents, not paths: the sandbox paths live under a random
+    per-session root. An empty stack hashes ``b"[]"``, as before patches existed.
+    """
+    entries = [hashlib.sha256(content).hexdigest() for content in contents]
+    return "sha256:" + hashlib.sha256(json.dumps(entries, separators=(",", ":")).encode()).hexdigest()
 
 
 def run(input_path: Path, output_path: Path) -> dict[str, Any]:
@@ -66,6 +70,7 @@ def run(input_path: Path, output_path: Path) -> dict[str, Any]:
         # malformed operator configuration should fail deterministically even
         # in a minimal test image that does not install the SDK.
         patches = _patches_from_env()
+        patches_sha256 = _patches_digest([Path(patch).read_bytes() for patch in patches])
         profile = os.environ.get("DSH_UA_PROFILE") or "sdk"
         if not profile.strip():
             raise RuntimeError("DSH_UA_PROFILE must be non-empty")
@@ -110,7 +115,7 @@ def run(input_path: Path, output_path: Path) -> dict[str, Any]:
             "final_response": result.final_response,
             "trace_persisted": keep_trace,
             "profile": profile,
-            "patches_sha256": _patches_digest(patches),
+            "patches_sha256": patches_sha256,
         }
         _write_private(output_path, (json.dumps(output, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8"))
         return output

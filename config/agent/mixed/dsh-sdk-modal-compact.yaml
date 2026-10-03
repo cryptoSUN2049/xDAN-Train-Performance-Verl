@@ -1,0 +1,43 @@
+# dsh-sdk-modal.yaml plus DSH automatic context compaction (config/agent/dsh/patches/compaction.patch.yml).
+# Identical to dsh-sdk-modal.yaml except `agent.patches`. Patch paths are repo-relative and resolve
+# against the checkout that contains recipes/code/dsh_agent.py, not the process cwd; absolute paths
+# also work. Compaction triggers at 0.8 x context_window, so context_window must stay set.
+use_dataset_env: true
+
+agent:
+  type: dsh-sdk
+  python_path: /opt/dsh/bin/python
+  payload_path: /workspace/xdan-verl-fusion/payloads/dsh-runtime-0.1.3a2-linux-x86_64.tar.gz
+  payload_sha256: e118df1d7c17eddde236b0a94b5e649e070cc18c7e7c6bfe6d6dcca98c9e275f
+  # Bounded like mimocode by TRAJECTORY_TIMEOUT (5400 s wall); 600 s left for sandbox start, payload and verifier.
+  run_timeout: 4800
+  # Per-turn output cap must match mini-mimocode-modal.yaml (32768, HARNESS_TURN_MAX_TOKENS). At 4096 the
+  # reasoning model was cut mid-thought: 155/322 DSH sessions in group-a-r1 steps 1-7 ended "max-tokens".
+  max_tokens: 32768
+  # = SGLang context_length and MAXLEN (65536), the same hard cap the mimocode loop runs under.
+  context_window: 65536
+  profile: sdk-minimal
+  patches:
+    - config/agent/dsh/patches/compaction.patch.yml
+
+environment:
+  environment_class: modal
+  cwd: /testbed
+  timeout: 300
+  sandbox_timeout: 7200
+  cpu: 2
+  memory: 8192
+  anti_hack_cleanup: true
+  # Official Code images keep post-task commits (answer leak); upstream advertises strip but never
+  # calls it, so recipes/code/code_environment.py strips at runtime and verifies the worktree.
+  git_leak_prevention: strip
+  raise_on_transport_error: true
+
+model:
+  model_name: policy
+  protocol: chat
+  model_kwargs:
+    max_tokens: 32768
+    timeout: 3600
+    max_retries: 0
+    temperature: 1.0

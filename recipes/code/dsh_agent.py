@@ -15,7 +15,10 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from recipes.code.dsh_runner import _patches_digest
+
 _EMPTY_PATCHES_HASH = "sha256:" + hashlib.sha256(b"[]").hexdigest()
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _BOOTSTRAP = """import hashlib, importlib.metadata, json, os, pathlib, runpy, sys
 root = pathlib.Path(sys.argv[1])
 settings = json.loads((root / "env.json").read_text())
@@ -41,7 +44,24 @@ finally:
 """
 
 
-def validate_result(value: dict, trace: bytes, *, session_id: str, trace_path: str) -> tuple[str, str]:
+def _read_patches(patches: list[str]) -> list[bytes]:
+    """Read ordered local DSH profile patches; relative paths resolve from the repo, not the cwd."""
+    if not isinstance(patches, list | tuple) or any(not isinstance(item, str) or not item.strip() for item in patches):
+        raise ValueError("DSH patches must be a list of paths")
+    paths = [(_REPO_ROOT / item).resolve() for item in patches]
+    if len(set(paths)) != len(paths):
+        raise ValueError("DSH patches must not repeat a file")
+    for path in paths:
+        if path.suffix not in (".yml", ".yaml"):
+            raise ValueError(f"DSH patch {path} must be a .yml or .yaml file")
+        if not path.is_file():
+            raise ValueError(f"DSH patch {path} does not exist")
+    return [path.read_bytes() for path in paths]
+
+
+def validate_result(
+    value: dict, trace: bytes, *, session_id: str, trace_path: str, patches_sha256: str = _EMPTY_PATCHES_HASH
+) -> tuple[str, str]:
     """Fail closed on a corrupt, mismatched or incomplete SDK result."""
     expected = {
         "schema": "dsh.uni-agent.dsh-run.v1",
@@ -50,7 +70,7 @@ def validate_result(value: dict, trace: bytes, *, session_id: str, trace_path: s
         "trace_persisted": True,
         "trace_sha256": "sha256:" + hashlib.sha256(trace).hexdigest(),
         "profile": "sdk-minimal",
-        "patches_sha256": _EMPTY_PATCHES_HASH,
+        "patches_sha256": patches_sha256,
     }
     if not isinstance(value, dict):
         raise RuntimeError("DSH result must be an object")
@@ -99,6 +119,8 @@ class DshSdkAgent:
         msg_path: Path | None = None,
         payload_path: str | None = None,
         payload_sha256: str | None = None,
+        patches: list[str] | None = None,
+        patches_sha256: str | None = None,
     ):
         if profile != "sdk-minimal":
             raise ValueError("Only the frozen sdk-minimal profile is supported")
@@ -115,6 +137,12 @@ class DshSdkAgent:
         self.context_window = context_window
         self.msg_path = Path(msg_path) if msg_path else None
         self.payload_path, self.payload_sha256 = payload_path, payload_sha256
+        # Snapshot patch contents once: the bytes hashed here are the bytes uploaded,
+        # and the runner re-hashes what it reads in the sandbox (validate_result).
+        self.patches = _read_patches([] if patches is None else patches)
+        self.patches_sha256 = _patches_digest(self.patches)
+        if patches_sha256 is not None and patches_sha256 != self.patches_sha256:
+            raise ValueError("DSH patches_sha256 mismatch")
         self.messages = []
 
     def _ensure_runtime(self) -> None:
@@ -162,6 +190,7 @@ class DshSdkAgent:
         session_id = "dsh-" + match[1]
         root = f"/tmp/mimo-dsh-sdk-{uuid.uuid4().hex}"
         trace_path = root + "/session.jsonl"
+        patch_files = {f"patch-{index:02d}.yml": content for index, content in enumerate(self.patches)}
         settings = {
             "DSH_RUNTIME_MODE": "exe",
             "DSH_UA_BASE_URL": base_url,
@@ -173,7 +202,7 @@ class DshSdkAgent:
             "DSH_UA_TRACE_PATH": trace_path,
             "DSH_UA_KEEP_TRACE": "1",
             "DSH_UA_PROFILE": "sdk-minimal",
-            "DSH_UA_PATCHES": "[]",
+            "DSH_UA_PATCHES": json.dumps([root + "/" + name for name in patch_files]),
             "DSH_UA_MAX_TOKENS": str(self.max_tokens),
             "DSH_TELEMETRY_DISABLED": "1",
         }
@@ -188,6 +217,7 @@ class DshSdkAgent:
                 "env.json": json.dumps(settings).encode(),
                 "runner.py": Path(__file__).with_name("dsh_runner.py").read_bytes(),
                 "bootstrap.py": _BOOTSTRAP.encode(),
+                **patch_files,
             }
             try:
                 for name, content in files.items():
@@ -212,6 +242,7 @@ class DshSdkAgent:
                     trace,
                     session_id=session_id,
                     trace_path=trace_path,
+                    patches_sha256=self.patches_sha256,
                 )
                 self.messages = [{"role": "user", "content": task}, {"role": "assistant", "content": response}]
                 return status, response

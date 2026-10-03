@@ -1,0 +1,30 @@
+# DSH profile patch: re-enable automatic context compaction on sdk-minimal.
+#
+# sdk-minimal is a complete standalone Cordis tree that deliberately omits
+# dsh-base, including the token meter and compaction rows, so a long session
+# grows until the routed context window overflows. This patch inserts the
+# same flat host-plane rows dsh-base mounts. compaction-basic injects
+# `llm`, `tokenMeter` and `sessions`; sdk-minimal already provides `llm` and
+# `sessions`, so the meter is inserted with it. `dsh-command-compact` is left
+# out: it injects `commands`, which sdk-minimal has no registry or adapter for.
+#
+# Policy: start condensing at floor(0.8 * routed context window) and keep the
+# newest 16% verbatim (the runtime defaults, restated so the patch hash pins
+# them). The window comes from DSH_CONTEXT_WINDOW (agent `context_window`);
+# without it the sdk-minimal adapter falls back to 1000000 and never triggers.
+- insert:
+    - id: token-meter
+      name: '@deepseek-ai/dsh-token-meter'
+    # Trims oversized tool results once a compaction trigger qualifies, before
+    # the summarizer runs; a below-pressure conversation is never touched.
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+      config:
+        thresholdRatio: 0.8
+        retainRatio: 0.16
