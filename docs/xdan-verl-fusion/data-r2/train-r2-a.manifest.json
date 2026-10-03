@@ -1,0 +1,131 @@
+{
+  "inputs": {
+    "/workspace/xdan-verl-fusion/data/code-clean/train-minus-holdout100.parquet": {
+      "rows": 2598,
+      "sha256": "c26dbe8bcc43fcd0e133076b22de27a2a117f36842572beab44ba1f3189292ae"
+    },
+    "/workspace/xdan-verl-fusion/data/group-a-r2/batch1-tb21-a.parquet": {
+      "rows": 60,
+      "sha256": "868fea86397465a6dd5a76f20f134597b2af1375e35f13e96c8aaf46184ed0d6"
+    }
+  },
+  "deny_lists": [
+    "/workspace/xdan-verl-fusion/data/eval-denylist.txt"
+  ],
+  "rows": 2658,
+  "by_dataset_type": {
+    "opensource-code": 2598,
+    "harbor": 60
+  },
+  "columns": [
+    "ability",
+    "agent_name",
+    "data_source",
+    "extra_info",
+    "prompt",
+    "reward_model"
+  ],
+  "shuffle_seed": 20261002,
+  "output": "/workspace/xdan-verl-fusion/data/group-a-r2/train-r2-a.parquet",
+  "output_sha256": "507607cf7a0aced40d047fc765bbd4d1b77e9303577e114b3eac8bb17309b575",
+  "variant": "a",
+  "method": "strict-proportional",
+  "selection": "/workspace/xdan-verl-fusion/data/group-a-r2/inputs/batch1-tb21-selection.json",
+  "selection_sha256": "0ba9b227ebb50aae5e111173e5e76daf7896d920c0d5db947bf3cf4364d0dd77",
+  "labels_sha256": "2356a1bd8e3d34bac95883ae12fc871b41dbd22d6aa34a642cc30ea9eceeeed4",
+  "rows_by_source": {
+    "mimo-code": 2598,
+    "harbor-batch1": 60
+  },
+  "batch1_by_category": {
+    "model-training": 3,
+    "software-engineering": 18,
+    "data-processing": 3,
+    "scientific-computing": 5,
+    "system-administration": 6,
+    "debugging": 3,
+    "video-processing": 1,
+    "data-science": 6,
+    "mathematics": 3,
+    "file-operations": 3,
+    "data-querying": 1,
+    "security": 5,
+    "optimization": 1,
+    "machine-learning": 2
+  },
+  "batch1_by_family": {
+    "terminal-lego-15k": 43,
+    "swe-rebench-v2-fv": 17
+  },
+  "batch1_by_native_difficulty": {
+    "medium": 45,
+    "easy": 12,
+    "hard": 3
+  },
+  "batch1_by_llm_difficulty": {
+    "medium": 50,
+    "easy": 10
+  },
+  "batch1_selected_ids": [
+    "swe-rebench-v2-fv__alteryx__evalml-1457",
+    "swe-rebench-v2-fv__amaranth-lang__amaranth-1098",
+    "swe-rebench-v2-fv__astropenguin__xarray-dataclasses-51",
+    "swe-rebench-v2-fv__aws-cloudformation__cfn-lint-3671",
+    "swe-rebench-v2-fv__aws-cloudformation__cfn-lint-3972",
+    "swe-rebench-v2-fv__hdmf-dev__hdmf-855",
+    "swe-rebench-v2-fv__joke2k__faker-1946",
+    "swe-rebench-v2-fv__litestar-org__polyfactory-492",
+    "swe-rebench-v2-fv__narwhals-dev__narwhals-1814",
+    "swe-rebench-v2-fv__narwhals-dev__narwhals-2747",
+    "swe-rebench-v2-fv__openmdao__openmdao-3522",
+    "swe-rebench-v2-fv__pycqa__bandit-633",
+    "swe-rebench-v2-fv__pymc-devs__pytensor-1231",
+    "swe-rebench-v2-fv__python-markdown__markdown-994",
+    "swe-rebench-v2-fv__qiskit__qiskit-terra-7789",
+    "swe-rebench-v2-fv__stfc__psyclone-3037",
+    "swe-rebench-v2-fv__tox-dev__pipdeptree-171",
+    "terminal-lego-15k__task_03300",
+    "terminal-lego-15k__task_03839",
+    "terminal-lego-15k__task_03868",
+    "terminal-lego-15k__task_04234",
+    "terminal-lego-15k__task_04248",
+    "terminal-lego-15k__task_04501",
+    "terminal-lego-15k__task_04541",
+    "terminal-lego-15k__task_04602",
+    "terminal-lego-15k__task_04623",
+    "terminal-lego-15k__task_04668",
+    "terminal-lego-15k__task_04843",
+    "terminal-lego-15k__task_04926",
+    "terminal-lego-15k__task_04954",
+    "terminal-lego-15k__task_05388",
+    "terminal-lego-15k__task_06517",
+    "terminal-lego-15k__task_06546",
+    "terminal-lego-15k__task_06629",
+    "terminal-lego-15k__task_06736",
+    "terminal-lego-15k__task_06756",
+    "terminal-lego-15k__task_06814",
+    "terminal-lego-15k__task_06871",
+    "terminal-lego-15k__task_07041",
+    "terminal-lego-15k__task_07280",
+    "terminal-lego-15k__task_07603",
+    "terminal-lego-15k__task_07847",
+    "terminal-lego-15k__task_08292",
+    "terminal-lego-15k__task_08987",
+    "terminal-lego-15k__task_09422",
+    "terminal-lego-15k__task_09689",
+    "terminal-lego-15k__task_10647",
+    "terminal-lego-15k__task_10905",
+    "terminal-lego-15k__task_11060",
+    "terminal-lego-15k__task_11176",
+    "terminal-lego-15k__task_11758",
+    "terminal-lego-15k__task_12896",
+    "terminal-lego-15k__task_13197",
+    "terminal-lego-15k__task_13233",
+    "terminal-lego-15k__task_13486",
+    "terminal-lego-15k__task_13488",
+    "terminal-lego-15k__task_13507",
+    "terminal-lego-15k__task_13574",
+    "terminal-lego-15k__task_13975",
+    "terminal-lego-15k__task_14920"
+  ]
+}
