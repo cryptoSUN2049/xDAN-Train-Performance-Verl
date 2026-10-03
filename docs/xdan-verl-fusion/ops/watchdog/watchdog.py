@@ -344,9 +344,22 @@ def fusion_alerts(s: dict, state: dict) -> tuple[list[tuple[str, str, bool]], fl
 def verdicts(pairs: list[dict]) -> dict[str, str]:
     """Pre-registered rule (spec fusion-a-v1): per harness, TB2.1 strict mean@8 paired diff vs SFT >= +3pt
     and 95% CI lower bound > 0. Returns {model_tag: markdown} once both harnesses have a tb21 row."""
+    # eval-pairs.jsonl: diff / se / ci95 are in percentage points; only the pre-registered comparison counts,
+    # and a re-run supersedes earlier rows (latest utc wins).
+    pairs = sorted(
+        (
+            r
+            for r in pairs
+            if r.get("base_tag") == "sft"
+            and r.get("score") == "strict"
+            and r.get("eval_spec_version") == "fusion-a-v1"
+            and r.get("bench") == "tb21"
+        ),
+        key=lambda r: str(r.get("utc")),
+    )
     out: dict[str, str] = {}
     for tag in ("step25", "step50", "step100"):
-        rows = {r.get("harness"): r for r in pairs if r.get("model_tag") == tag and r.get("bench") == "tb21"}
+        rows = {r.get("harness"): r for r in pairs if r.get("model_tag") == tag}
         if not {"mimocode", "dsh"} <= set(rows):
             continue
         lines, passed = [], []
@@ -354,10 +367,10 @@ def verdicts(pairs: list[dict]) -> dict[str, str]:
             r = rows[h]
             diff, ci = r.get("diff"), r.get("ci95")
             lo = ci[0] if isinstance(ci, (list, tuple)) and ci else None
-            ok = diff is not None and lo is not None and diff >= 0.03 and lo > 0
+            ok = diff is not None and lo is not None and diff >= 3.0 and lo > 0
             passed.append(ok)
             lines.append(
-                f"- {h}：配对差 {diff * 100:+.1f}pt，95% CI [{lo * 100:+.1f}, {ci[1] * 100:+.1f}]，"
+                f"- {h}：配对差 {diff:+.1f}pt，95% CI [{lo:+.1f}, {ci[1]:+.1f}]，配对题数 {r.get('n_paired_tasks')}，"
                 f"胜/负 {r.get('wins')}/{r.get('losses')} → {'✅ 达标' if ok else '❌ 未达标'}"
                 if diff is not None and lo is not None
                 else f"- {h}：数据不完整 {r}"
