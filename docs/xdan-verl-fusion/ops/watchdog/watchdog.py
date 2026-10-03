@@ -88,7 +88,7 @@ if os.path.exists(R + "/metrics.jsonl"):
         m = json.loads(line); m = m.get("data", m)
         if "training/global_step" in m:
             steps.append({k: m.get(k) for k in ("training/global_step", "timing_s/step", "critic/rewards/mean",
-                "actor/grad_norm", "harness/mimocode-agent/reward_mean", "harness/dsh-sdk/reward_mean",
+                "actor/grad_norm", "critic/advantages/min", "critic/advantages/max", "harness/mimocode-agent/reward_mean", "harness/dsh-sdk/reward_mean",
                 "dynsam/opensource-code/num_accepted/step", "dynsam/harbor/num_accepted/step")})
 out["steps"] = steps
 out["started"] = os.path.getmtime(R + "/started-utc.txt") if os.path.exists(R + "/started-utc.txt") else None
@@ -349,6 +349,19 @@ def fusion_alerts(s: dict, state: dict) -> tuple[list[tuple[str, str, bool]], fl
             alerts.append(("fail_stop", f"最近 rollout 失败率 {ratio:.0%} > {FAIL_STOP:.0%}{detail}", True))
         elif ratio > FAIL_WARN:
             alerts.append(("fail_warn", f"最近 rollout 失败率 {ratio:.0%} > {FAIL_WARN:.0%}{detail}", False))
+    # Sentinel rewards (e.g. -999 for infra failures) leaking into GRPO advantages show up as huge |adv| and
+    # grad norm while mean reward looks normal (seen on the baseline General line, 2026-10-03).
+    last = (s.get("steps") or [{}])[-1]
+    adv = max(abs(last.get("critic/advantages/min") or 0), abs(last.get("critic/advantages/max") or 0))
+    if adv > 10 or (last.get("actor/grad_norm") or 0) > 20:
+        alerts.append(
+            (
+                "adv_blowup",
+                f"step {last.get('training/global_step')} 优势或梯度异常：|adv|max={adv:.1f}，"
+                f"grad_norm={last.get('actor/grad_norm')}（正常 |adv|≤~1，grad≤~0.5），疑似哨兵 reward 混入",
+                False,
+            )
+        )
     new_dsh = s.get("dsh_failures", 0) - state.get("dsh_failures_seen", 0)
     if new_dsh >= 3:
         alerts.append(("dsh", f"新增 DSH 失败 {new_dsh} 条（累计 {s.get('dsh_failures')}）", False))
