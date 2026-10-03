@@ -16,7 +16,7 @@ PHASE="${1:-fresh}"
 export RUN_ID="${RUN_ID:-group-a-r1}"  # override only for checks (e.g. dsh-fix-check)
 export BASE_RUN=$XDAN_FUSION_ROOT/runs/$RUN_ID
 export CHECKPOINT_DIR=$XDAN_FUSION_ROOT/checkpoints/$RUN_ID
-export TRAIN_DATA=$XDAN_FUSION_ROOT/data/group-a/train-r1.parquet
+export TRAIN_DATA="${TRAIN_DATA:-$XDAN_FUSION_ROOT/data/group-a/train-r1.parquet}"
 export VAL_DATA=$XDAN_FUSION_ROOT/data/harbor-stage1/validation.parquet
 
 export DSH_GATEWAY_ROUTE_DIR=/root/mimo-private/dsh-routes
@@ -51,7 +51,7 @@ case "$PHASE" in
   preflight) export WANDB_RUN_ID=ga103p RUN_DIR="$BASE_RUN/preflight" BASE_RUN="$BASE_RUN/preflight"
          export PREFLIGHT_ONLY=1 SKIP_CLUSTER_CHECK=1 CUDA_VISIBLE_DEVICES="" ;;
   resume) : "${RESUME_STEP:?}"
-         export WANDB_RUN_ID="ga103r${RESUME_STEP}" RUN_DIR="$BASE_RUN/resume-step${RESUME_STEP}"
+         export WANDB_RUN_ID="${WANDB_RUN_ID:-ga103r${RESUME_STEP}}" RUN_DIR="$BASE_RUN/resume-step${RESUME_STEP}"
          test -d "$CHECKPOINT_DIR/global_step_${RESUME_STEP}/actor"
          RESUME_ARGS=(trainer.resume_mode=resume_path "trainer.resume_from_path=$CHECKPOINT_DIR/global_step_${RESUME_STEP}") ;;
   *) echo "usage: launch_group_a.sh fresh|preflight|resume" >&2; exit 2 ;;
