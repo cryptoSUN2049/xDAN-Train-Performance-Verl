@@ -169,3 +169,12 @@
 - DSH：`sdk-minimal` profile 按设计排除了 compaction（runtime 文档原文）。可以通过 profile patch 插入 compaction 组（compaction-basic、command-compact、tool-result-pruner），但 DshSdkAgent 把 `DSH_UA_PATCHES` 固定为 `[]`，需要改代码。
 - 用户决策（「不动训练」）：只在评测侧用 SFT 做 A/B，单独登记 spec（harness-ab-v0），不改 fusion-a-v1，也不改训练。mimocode 的 A 组为加 compact 工具并使用真实分母，B 组为 A 加收尾提示和工具输出截断，已交给 fusion-eval。DSH 的 patch 支持等代码改好后再加入。
 - 训练端的前提：上下文压缩会把一个会话切成多段轨迹（num_trajectories > 1）。第二轮要采用压缩，就得先验证训练端能正确处理多段轨迹。
+
+### 2026-10-03 15:35 分析：SFT 的 TB2.1 基线齐了（mimocode 27.1%，DSH 21.1%）；作废规则需要用户确认
+
+- SFT × TB2.1 × DSH（96K，mean@8，712/712）：strict 21.1%，gradable 21.9%。
+  - end_shares：turn_cap 12.8%，context_full 44.5%，route_401 1.1%，dsh_run_timeout 6.5%。
+  - 各结束原因的平均分：completed 242 个 0.55，context-full 317 个 0.054，其余为 0。
+- 对照 mimocode：27.1%，完成率 74%，完成会话平均 0.34。DSH 只要跑完，得分更高（0.55），但约 2/3 的会话没跑完，所以 DSH 的提升空间几乎都在「收敛」上（与 12:00 的估算一致）。
+- 训练进度：step 29。step 25 的 HF 权重已于 12:33 留存（18G）。
+- 待决：评测 spec 写的是「n_failed > 5% 则 INVALID」。DSH 的失败共 8.7%，但其中大部分是超时、撞上限这类模型行为，本来就按 strict 计 0 分。建议只统计基础设施类失败（framework_error、沙箱或 Modal 错误、route_401，合计约 2.2%）。按这个口径，SFT 的 DSH 基线有效。需要用户确认。
