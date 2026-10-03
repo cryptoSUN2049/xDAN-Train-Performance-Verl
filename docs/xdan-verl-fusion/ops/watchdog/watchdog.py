@@ -44,7 +44,7 @@ FUSION = {
     "goal": "TB2.1 或 Code holdout100（mean@4）至少一项比 SFT 高 ≥3pt，其余不退步；step 50 仍无增益则停",
     "milestones": {
         5: "首个 checkpoint（之后可断点续训；每 5 步存一次，保留最近 2 个）",
-        25: "评测点 1：对比 SFT 基线（step 25 的 checkpoint 会在 step 35 被轮转删除，需先留存）",
+        25: "评测点 1：对比 SFT 基线（HF 权重已由 milestone_keeper 永久留存）",
         50: "决策点：对比 SFT，无增益则停",
         100: "第一轮完成 → 第二轮加入 batch1 的 1851 题",
     },
@@ -121,7 +121,29 @@ out["session_totals"] = [int(a) + int(f) for a, f, _ in summ]
 out["failed_groups"] = sum(int(u) for _, _, u in summ)
 out["fail_reasons"] = sorted(set(re.findall(r"failure_reasons=\['([A-Za-z]+Error)", text[-500_000:])))
 out["ckpts"] = sorted(int(d.rsplit("_", 1)[1]) for d in os.listdir(CK) if d.startswith("global_step_")) if os.path.isdir(CK) else []
-out["sft_eval_done"] = bool(glob.glob("/workspace/xdan-verl-fusion/runs/eval-a-sft-*/metrics.jsonl"))
+# fusion-eval writes runs/eval-a-<tag>-<harness>-<bench>/ (+ summary.json with strict = failed sessions count as 0);
+# the TB2.1 baseline counts as done only when both harnesses finished.
+E = "/workspace/xdan-verl-fusion/runs"
+out["sft_eval_done"] = all(os.path.exists(f"{E}/eval-a-sft-{h}-tb21/metrics.jsonl") for h in ("mimocode", "dsh"))
+def strict(o):
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if "strict" in k and isinstance(v, (int, float)):
+                return v
+            found = strict(v)
+            if found is not None:
+                return found
+    return None
+evals = {}
+for d in sorted(glob.glob(E + "/eval-a-*")):
+    name = os.path.basename(d)[len("eval-a-"):]
+    if name.startswith("smoke") or not os.path.exists(d + "/metrics.jsonl"):
+        continue
+    try:
+        evals[name] = strict(json.load(open(d + "/summary.json")))
+    except Exception:
+        evals[name] = None
+out["evals"] = evals
 origin = open("/workspace/xdan-verl-fusion/runs/dsh-gateway-runpod/public-origin.txt").read().strip()
 probe = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "POST",
     "-H", "Content-Type: application/json", "-d", "{}", "--max-time", "15",
@@ -309,6 +331,12 @@ def fusion_alerts(s: dict, state: dict) -> tuple[list[tuple[str, str, bool]], fl
     return alerts, idle_min
 
 
+def evals_text(evals: dict | None) -> str:
+    if not evals:
+        return "无"
+    return "，".join(f"{k} {'-' if v is None else format(v, '.3f')}" for k, v in evals.items())
+
+
 def fusion_progress(s: dict, done: int) -> str:
     total, milestones = FUSION["total_steps"], FUSION["milestones"]
     upcoming = [m for m in sorted(milestones) if m > done]
@@ -316,7 +344,8 @@ def fusion_progress(s: dict, done: int) -> str:
     return (
         f"**进度** {bar(done, total)}\n"
         f"- 下一节点：{nxt}\n"
-        f"- SFT 基线评测：{'✅ 已有' if s.get('sft_eval_done') else '❌ 未跑（阻塞 step 20/50 的判定）'}\n"
+        f"- SFT 基线（TB2.1，两个 harness）：{'✅ 已完成' if s.get('sft_eval_done') else '⏳ 未完成（step 50 判定需要它）'}\n"
+        f"- 已完成评测（strict）：{evals_text(s.get('evals'))}\n"
         f"- 已保存 checkpoint：{s.get('ckpts') or '无'}"
     )
 
