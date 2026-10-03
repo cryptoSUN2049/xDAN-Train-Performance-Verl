@@ -256,8 +256,10 @@ def _dsh_model_route(model, environment_config, agent_config):
 
     model_kwargs = model.config.model_kwargs
     original = dict(model_kwargs)
+    # The route is registered before sandbox start and payload injection, while run_timeout only starts with
+    # the DSH run; a 60 s margin let routes expire first (mid-session HTTP 401 at 4465-4789 s of a 4800 s run).
     with register_route(
-        model_kwargs["base_url"], origin, route_dir, ttl_seconds=int(agent_config.get("run_timeout", 600)) + 60
+        model_kwargs["base_url"], origin, route_dir, ttl_seconds=int(agent_config.get("run_timeout", 600)) + 900
     ) as (url, token):
         model_kwargs.update(base_url=url, api_key=token)
         try:
