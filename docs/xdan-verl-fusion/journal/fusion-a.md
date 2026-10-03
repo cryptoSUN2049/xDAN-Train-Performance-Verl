@@ -158,3 +158,14 @@
 
 - 结论：mimocode 的主要瓶颈是解题能力；DSH 的主要瓶颈是「开局想太多」（16%）和「上下文用满」（37%）。
 - 处理原则：不直接惩罚输出长度，以免模型学会提早放弃。保持只按结果给分；在 harness 层设单轮思考预算；优先做上下文管理（丢弃历史推理或压缩）。验证时看 end_shares 中的 turn_cap 和 context_full 是否下降，同时已完成会话的得分不下降。
+
+### 2026-10-03 ~12:40 分析：两个 harness 都自带上下文管理，但在我们的配置里都没生效
+
+- mimocode：
+  1. 由模型调用的 `compact` 工具，没有出现在官方和我们的工具列表里；
+  2. 上下文用量提示的分母 `compaction_context_window` 默认是 1M，在 64K/96K 下模型只看到 6–10%；
+  3. `wrap_up_hint` 默认关闭；
+  4. `max_observation_length` 为 0，工具输出不截断。
+- DSH：`sdk-minimal` profile 按设计排除了 compaction（runtime 文档原文）。可以通过 profile patch 插入 compaction 组（compaction-basic、command-compact、tool-result-pruner），但 DshSdkAgent 把 `DSH_UA_PATCHES` 固定为 `[]`，需要改代码。
+- 用户决策（「不动训练」）：只在评测侧用 SFT 做 A/B，单独登记 spec（harness-ab-v0），不改 fusion-a-v1，也不改训练。mimocode 的 A 组为加 compact 工具并使用真实分母，B 组为 A 加收尾提示和工具输出截断，已交给 fusion-eval。DSH 的 patch 支持等代码改好后再加入。
+- 训练端的前提：上下文压缩会把一个会话切成多段轨迹（num_trajectories > 1）。第二轮要采用压缩，就得先验证训练端能正确处理多段轨迹。
