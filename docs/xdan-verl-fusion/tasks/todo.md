@@ -79,3 +79,4 @@
 - [ ] 第二轮代码前置：mimocode 的 `_context_usage_footer` 改用模型返回的真实 usage（现在用 4 bytes/token 估算，加上 tools schema 不计入，footer 从不触发）
 - [ ] A/B 对照规则：按某组结果选出来的子集，必须在同一批次新跑对照组（ctx0），避免回归均值
 - [ ] 移植 baseline 的 `_purge_unreachable_objects` 到 recipes/code/code_environment.py：strip 后要求 `git fsck --unreachable --no-reflogs` 为 0，否则 fail closed（partial clone 的 .promisor 包会留下未来提交，见 format-code-task-002295）
+- [ ] 若将来并入使用哨兵 reward 的域（如 General，invalid_reward_value=-999）：融合分支的 verl/trainer/ppo/ray_trainer.py:269 GRPO 分支同样没有把 config 传给 compute_grpo_outcome_advantage，导致 -999 屏蔽逻辑从不执行；需要移植 baseline 的修复（加 config=config；General agent_loop 写入 is_infra），参考 baseline 的 tests/trainer/ppo/test_grpo_invalid_reward_on_cpu.py。当前 invalid_reward_value 为 null，不受影响
