@@ -379,7 +379,7 @@ def verdicts(pairs: list[dict]) -> dict[str, str]:
         key=lambda r: str(r.get("utc")),
     )
     out: dict[str, str] = {}
-    for tag in ("step25", "step50", "step100"):
+    for tag in ("step25", "r2-step50", "r2-step100"):  # r2 = data switch at step 35 (fusion-a-v1 amendment)
         rows = {r.get("harness"): r for r in pairs if r.get("model_tag") == tag}
         if not {"mimocode", "dsh"} <= set(rows):
             continue
