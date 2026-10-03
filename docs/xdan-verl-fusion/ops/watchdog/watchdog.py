@@ -99,11 +99,17 @@ ends = {}
 for d in recent_steps:
     for f in glob.glob(d + "/*/agent_msgs/dsh-session.jsonl"):
         with open(f, "rb") as fh:
-            fh.seek(max(0, os.path.getsize(f) - 4096))
+            fh.seek(max(0, os.path.getsize(f) - 8192))
             tail = fh.read().decode("utf-8", "ignore")
         kinds = re.findall(r'"reason":\{"kind":"([a-z-]+)"\},"turn"', tail)  # turn/end events only
-        if kinds:
-            ends[kinds[-1]] = ends.get(kinds[-1], 0) + 1
+        if not kinds:
+            continue
+        kind = kinds[-1]
+        if kind == "max-tokens":
+            # DSH reports both the per-turn cap and a full 64K context as max-tokens; split them by usage
+            usage = re.findall(r'"usage":\{"inputTokens":(\d+),"outputTokens":(\d+)', tail)
+            kind = "turn-cap" if usage and int(usage[-1][1]) >= 30000 else "context-full"
+        ends[kind] = ends.get(kind, 0) + 1
 out["dsh_turn_end"] = ends
 log = R + "/training.log"
 text = open(log, errors="ignore").read()[-5_000_000:] if os.path.exists(log) else ""
@@ -138,7 +144,7 @@ def score(d):
     vals = []
     for line in open(path):
         m = json.loads(line); m = m.get("data", m)
-        vals += [v for k, v in m.items() if re.match(r"val-core/.+/reward/mean@\d+$", k) and isinstance(v, (int, float))]
+        vals += [v for k, v in m.items() if re.match(r"val-core/.+/(reward|acc)/mean@\d+$", k) and isinstance(v, (int, float))]
     return sum(vals) / len(vals) if vals else None
 recs = []
 sp = os.path.join(R, P["summary"])
@@ -294,8 +300,8 @@ def fusion_alerts(s: dict, state: dict) -> tuple[list[tuple[str, str, bool]], fl
     if new_dsh >= 3:
         alerts.append(("dsh", f"新增 DSH 失败 {new_dsh} 条（累计 {s.get('dsh_failures')}）", False))
     ends = s.get("dsh_turn_end") or {}
-    if sum(ends.values()) >= 16 and ends.get("max-tokens", 0) / sum(ends.values()) > 0.10:
-        alerts.append(("dsh_cap", f"DSH 会话撞单轮输出上限比例偏高：{ends}（修复后应接近 0）", False))
+    if sum(ends.values()) >= 16 and ends.get("turn-cap", 0) / sum(ends.values()) > 0.10:
+        alerts.append(("dsh_cap", f"DSH 会话撞单轮输出上限（32768）比例偏高：{ends}（应接近 0）", False))
     if s.get("gateway_http") != "401":
         alerts.append(("gateway", f"DSH 网关探测异常：HTTP {s.get('gateway_http')}（预期 401）", False))
     if (s.get("sandboxes") or 0) > SANDBOX_WARN:
