@@ -83,6 +83,8 @@
 | 10-03 | 4 卡评测 pod 由用户开机，fusion-eval 会话负责评测；TB2.1 用 mean@8；增加 64K 对照组 |
 | 10-03 | 预注册判定：TB2.1 strict mean@8，分 harness，配对差 ≥ +3pt 且 95% CI 下界 > 0（CI 条件来自训练会话的建议，用户可否决） |
 | 10-03 | 最终目标：在多个榜单上同时超过 Qwen3.5-9B 和 Ornith-1.5-9B，并能横向对比 |
+| 10-03 | （用户在 fusion-eval 会话中确认）评测作废阈值只统计基础设施类失败（framework_error、route_401、agent_request_timeout、framework_timeout），SFT×DSH 为 2.2%，有效；Ornith 口径每题 32 CPU（Modal cpu=16）；judge 与 Ornith 一致（HLE 用 Opus 4.6，MCP-Atlas 用 Opus 4.8），拿不到时用 gpt-5.6-sol-cpa 并标注「不可比」 |
+| 10-03 | 只在评测侧用 SFT 做 harness 上下文管理 A/B（harness-ab-v0），不动训练 |
 
 ---
 
