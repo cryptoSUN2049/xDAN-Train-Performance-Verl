@@ -113,3 +113,9 @@
   2. 我们的任务和 harness 是正交设计，加入一个新 harness 的成本低。第二轮把 Terminus 风格的 harness（JSON 动作协议，不传 tools 参数）加进训练混合，是可行而且对准目标的做法。
   3. 横向对比时，要把「格式失分」和「能力失分」分开：用 Terminus 的 xml parser，或者用原生工具调用的 harness（如 Claude Code、OpenHands 的 function calling）测一次 SFT。Ornith 用 Claude Code 是 47.0，这个口径可以直接对比。
 - 相关信息：mimocode 口径下 SFT 是 27.1%；MiMo 报告的 37.1 是 avg@1，用的 harness 没有公开（列在 General 域下），三个数的口径各不相同。
+
+### 2026-10-03 11:20 用户决策：在原生工具调用口径下测一次 SFT（选项 a）
+
+- 目的：把 Terminus-2 下的「格式失分」和「能力失分」分开。
+- 方案（已转给 fusion-eval）：首选 Harbor 的 claude-code agent（Ornith 在此口径下 TB2.1 为 47.0），需要在 SGLang 前加一层 Anthropic→OpenAI 的转换代理；接不通就退回 OpenHands 的 function-calling。先抽 15–20 题、每题 1–2 次做诊断，排在 SFT×TB2.1×DSH 之后、step 25 之前，不影响 step 50 的关键路径。
+- 256K 定向上下文测试（选项 b）这次没有选。
