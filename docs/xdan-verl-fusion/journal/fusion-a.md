@@ -218,3 +218,10 @@
 - DshSdkAgent 支持按顺序加载 profile patches，并按内容做哈希、端到端校验；不传 patches 时与原来逐字节一致。新增补丁 `config/agent/dsh/patches/compaction.patch.yml`，以及示例 profile `dsh-sdk-modal-compact.yaml`。
 - 发现：compaction-basic 依赖 tokenMeter，sdk-minimal 中没有，所以补丁插入了 token-meter、tool-result-pruner、compaction-basic（0.8/0.16）；command-compact 依赖 `commands`，sdk-minimal 中没有，因此去掉。
 - 还没有实际运行验证：补丁能否加载、压缩是否触发、SDK 是否把补丁转成 --patch 参数。这些交给 fusion-eval 在冒烟测试中验证，先用小上下文（16K）强制触发。风险：token-meter 会回退到估算，可能偏低；摘要请求只有 8192 token，推理模型可能把它全部用于推理，导致摘要为空。
+
+### 2026-10-03 ~18:40 核查：Harbor swe-rebench 镜像没有 git 答案泄漏
+
+- 起因：baseline 线指出 HarborEnvironment 对 Harbor 行强制 `git_leak_prevention=none`。如果 swe-rebench 镜像保留了 base 之后的提交，模型就能用 git 看到修复，类似官方 Code 镜像中 23% 未截断的问题。
+- 方法：`scripts/harbor/git_leak_check.py` 用 Modal 临时沙箱（独立 app `xdan-fusion-leakcheck`，查完立即销毁）启动已构建的镜像，在任务 cwd 里查询：HEAD 之后可达的提交（`rev-list --all --not HEAD`）、refs、reflog，以及 `fsck --unreachable` 找到的游离提交。
+- 结果：batch1 的 swe-rebench 抽查 11 个，stage1 抽查 6 个（2 个 swe、4 个 lego），**全部为 0 泄漏**：HEAD 之后 0 个提交，没有 ref，reflog 为 0，游离提交为 0。terminal-lego 的 cwd（/app）不是 git 仓库。swe-rebench V2 的镜像本身已经把历史截断在 base。
+- 尚未覆盖：terminal-lego 与 TB2.1 的内容级重叠（黑名单只按 id）。baseline 线做的 8-gram 检查对 eval-denylist 和 holdout 命中 0；与 MiMo Code train 有 4 个近似重复，属于训练集内部重复，不是污染。
