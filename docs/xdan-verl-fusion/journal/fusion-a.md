@@ -103,3 +103,13 @@
   1. 用满上下文的会话是**轮数翻倍以上、迟迟不收敛的长会话**，不是几次超大的工具输出造成的。即使给到 96K，它们也只拿到 0.07 分，所以继续加长上下文的边际收益很低（推断，128K 下待验证）。
   2. 上下文的大头是**模型自己的推理**（约 60–70%）。所有轮次的推理都保留在历史里，正常完成的会话约 33 轮就用掉了约 60K。
 - 对第二轮的含义（待用户决策）：「升到 96K」的收益可能小于预期。更有效的方向可能是：(a) 管理上下文，比如不保留历史轮次的推理，或者开启 harness 自带的压缩，但这需要训练端支持多段轨迹；(b) 让 RL 惩罚不收敛的长会话、奖励及时收尾，64K 训练本身就带有这种压力。动手之前，先看 Terminus-2 口径下用满上下文的比例，再看卡住的会话是否在重复同样的命令。
+
+### 2026-10-03 11:10 分析：在 Terminus-2（Ornith 口径）下，SFT 主要失分于输出格式，而非能力
+
+- 来源：fusion-eval 的集成窗口。SFT 用 SGLang 起服务，128K，Harbor + Terminus-2（parser=json），跑 TB2.1 的 3 题。结果 3/3 都在 AgentTimeoutError（900s）时结束，得 0 分。
+- 根因：SFT 输出的是自己训练时用的原生工具调用格式 `<tool_call><function=commands>…`，不是 Terminus 要求的 JSON（analysis/plan/commands）。以 prove-plus-comm 为例：91 步里有 70 步（77%）是 JSON 解析失败；被提示修正格式后只改一两轮，又回到原格式，最后空转，输入 token 累积到 150 万到 1600 万。解题思路本身是对的。
+- 含义：
+  1. 按 Ornith 口径，SFT 的分数会被格式失败大幅拉低。Ornith 的 46.2 里包含了针对 harness 协议的适配训练。所以**「遵循第三方 harness 协议」本身就是一项需要训练的能力**。
+  2. 我们的任务和 harness 是正交设计，加入一个新 harness 的成本低。第二轮把 Terminus 风格的 harness（JSON 动作协议，不传 tools 参数）加进训练混合，是可行而且对准目标的做法。
+  3. 横向对比时，要把「格式失分」和「能力失分」分开：用 Terminus 的 xml parser，或者用原生工具调用的 harness（如 Claude Code、OpenHands 的 function calling）测一次 SFT。Ornith 用 Claude Code 是 47.0，这个口径可以直接对比。
+- 相关信息：mimocode 口径下 SFT 是 27.1%；MiMo 报告的 37.1 是 avg@1，用的 harness 没有公开（列在 General 域下），三个数的口径各不相同。
