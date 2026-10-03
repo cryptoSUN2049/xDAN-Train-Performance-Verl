@@ -212,3 +212,9 @@
 - 估算/真实比例：中位数 0.707（p10 0.51，p90 0.89）。比例低于 0.72 的会话看不到 footer，与 16:20 的推断一致。
 - 结论：「模型主动压缩」这条路在 SFT 上走不通。SFT 没学过对压力信号做出反应，所以把 footer 调得更早出现（ctxC）也没有意义，已取消。更值得做的是**不依赖模型配合的自动压缩**：DSH 可以通过 patch 加入 compaction-basic（阈值触发）；mimocode 目前写明「No automatic threshold trigger」，要在 harness 里加阈值触发。
 - 第二轮如果要训练模型主动 compact，有三个前提：footer 改用真实 usage；训练端支持 num_trajectories > 1；对压缩行为给奖励或做适量 SFT。
+
+### 2026-10-03 ~17:45 记录：DSH 自动压缩 patch（fc604f64）
+
+- DshSdkAgent 支持按顺序加载 profile patches，并按内容做哈希、端到端校验；不传 patches 时与原来逐字节一致。新增补丁 `config/agent/dsh/patches/compaction.patch.yml`，以及示例 profile `dsh-sdk-modal-compact.yaml`。
+- 发现：compaction-basic 依赖 tokenMeter，sdk-minimal 中没有，所以补丁插入了 token-meter、tool-result-pruner、compaction-basic（0.8/0.16）；command-compact 依赖 `commands`，sdk-minimal 中没有，因此去掉。
+- 还没有实际运行验证：补丁能否加载、压缩是否触发、SDK 是否把补丁转成 --patch 参数。这些交给 fusion-eval 在冒烟测试中验证，先用小上下文（16K）强制触发。风险：token-meter 会回退到估算，可能偏低；摘要请求只有 8192 token，推理模型可能把它全部用于推理，导致摘要为空。
