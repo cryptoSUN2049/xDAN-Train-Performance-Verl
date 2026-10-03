@@ -231,3 +231,27 @@
 - 来源：baseline 线对 620 个未截断的 Code 镜像跑全量 strip + fsck，只有这一题清不干净。它的镜像是 partial clone，历史放在 `.promisor` 包里，上游 gc 不会删除。strip 之后，25,728 个未来提交从 refs 已不可达，但仍能用 `git cat-file` 读出来。祖先断言和时间戳校验都发现不了，只有 `fsck --unreachable --no-reflogs` 能查出。
 - 我们的暴露情况：这道题在 Code 2598、train-r1 和 train-r2-a/b 中都有（数据集 index 804），不在 holdout100 中。ga103 和 attempt3 的轨迹里**从未抽到过这道题**（0 个会话），所以没有被利用过。
 - 处理：生成 `data/group-a-r2/train-r2-{a1,b1}.parquet`（各去掉 1 行，附带 manifest），r2 改用这两个文件；新增 `data/code-leak-exclude.txt`。待办：把 baseline 的 `_purge_unreachable_objects` 移植进我们的 Code 环境（删掉 promisor 标记，再 gc --prune=now，要求 fsck unreachable 为 0，否则失败即拒），第二轮之后启用。
+
+### 2026-10-03 19:38Z 推送
+
+**进度** `▓▓▓▓▓▓▓░░░░░░░░░░░░░` 35/100（35%）
+- 下一节点：step 50：决策点：对比 SFT，无增益则停
+- SFT 基线（TB2.1，两个 harness）：✅ 已完成
+- 已完成评测（strict）：sft-dsh-tb21 0.211，sft-mimocode-tb21 0.271
+- 已保存 checkpoint：[5, 10, 15, 20, 25, 30, 35]
+
+**近 5 步**
+- 步时 42.3 分钟，预计剩余 46 小时
+- reward 0.562，grad 0.283
+- harness：mimocode 0.564 / DSH 0.500
+- 被接收的组：Code 40 / Harbor 0
+- DSH 结束原因（近 2 步）：{'completed': 8, 'context-full': 4}
+- DSH 失败累计 9，ungradable 2，沙箱 48
+
+### 2026-10-03 ~19:30 分析：harness-ab-v0（mimocode）结果：靠工具或提示让模型自己管理上下文，对 SFT 无效甚至有害
+
+- 设计：25 题（按「没写完」占比最高选出）× k=4，同批次，按题与 ctx0 做配对比较。
+- ctx0（原配置重跑）：17.0%。选题时那批对照是 9.0%，同配置重跑回到 17%，**回归均值得到证实**。
+- ctxA（加 compact 工具和 footer）：8.0%，相对 ctx0 为 −9.0pt，95% CI [−16.9, −1.1]，胜 1 / 平 15 / 负 9，**显著变差**。compact 只调用了 1 次。推断是多出来的工具说明和压力提示干扰了模型，未验证。
+- ctxB（A 加收尾提示和工具输出截断）：12.0%，−5.0pt，CI [−13.0, +3.0]，不显著。LimitsExceeded 从 42 降到 33，但完成会话的均分从 0.232 降到 0.175，相当于「更早收尾，但答得更差」。
+- 结论：第二轮不能直接打开 mimocode 的 compact、footer 或收尾提示，开之前必须在评测上证明不伤分。剩下两条路：harness 侧的自动压缩（DSH patch，待冒烟），或者在训练里教会模型压缩。
