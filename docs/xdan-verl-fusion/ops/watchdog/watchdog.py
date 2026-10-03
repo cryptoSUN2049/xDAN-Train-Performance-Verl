@@ -494,8 +494,14 @@ def baseline_progress(s: dict) -> str:
             return f"⏳{label}"
         return f"{'✅' if str(rec.get('rc')) == '0' else '❌'}{label}{extra}"
 
+    def valid(rec):
+        # a mean outside [0, 1] means infra-failure sentinels (-999, e.g. judge_crashed) were averaged in
+        return rec is not None and rec.get("score") is not None and -0.01 <= rec["score"] <= 1.01
+
     def scored(rec):
-        return f" {rec['score']:.3f}" if rec and rec.get("score") is not None else ""
+        if rec and rec.get("score") is not None and not valid(rec):
+            return " 无效（含基础设施失败样本，待重测）"
+        return f" {rec['score']:.3f}" if valid(rec) else ""
 
     total = len(target["tail_1h"]) + len(target["domains"]) * len(PHASES_4H)
     finished = sum(1 for d, p, _ in target["tail_1h"] if (d, p) in done)
@@ -505,7 +511,7 @@ def baseline_progress(s: dict) -> str:
         sft, train, rl = (done.get((d, p)) for p, _ in PHASES_4H)
         finished += sum(1 for r in (sft, train, rl) if r)
         delta = ""
-        if sft and rl and sft.get("score") is not None and rl.get("score") is not None:
+        if valid(sft) and valid(rl):
             delta = f"（RL−SFT {rl['score'] - sft['score']:+.3f}）"
         n = plan.get(d)
         parts = [mark(sft, "SFT", scored(sft)), mark(train, f"训练{n or '?'}步"), mark(rl, "RL", scored(rl) + delta)]
@@ -534,7 +540,12 @@ def tick_baseline(state: dict, send: bool) -> str:
         seen = len(records)
     for record in records[seen:]:
         ok = str(record.get("rc")) == "0"
-        score = f"，得分 {record['score']:.3f}" if record.get("score") is not None else ""
+        sc = record.get("score")
+        score = (
+            ""
+            if sc is None
+            else (f"，得分 {sc:.3f}" if -0.01 <= sc <= 1.01 else "，得分无效（含基础设施失败样本，待重测）")
+        )
         status = "完成" if ok else f"失败 rc={record.get('rc')}"
         head = f"**{record['domain']} · {record['phase']}** {status}{score}"
         notify(target, f"{head}\n\n{baseline_progress(s)}", send, icon="" if ok else "⚠️ ")
